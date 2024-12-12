@@ -26,22 +26,32 @@ def save_file(data, path):
 	with open(path, "r+b") as f:
 		f.write(bytes(data))
 
-def nop_search(data, offset, file_length, min_length_needed = 2):
+def nop_search(data, offset, file_length, min_length_needed = 3):
 
 	number_in_a_row = 0
+	previous_line_was_branch = False
 
 	if(min_length_needed == -1):
 		total_useable_nops = 0
 		while True:
 			if(data[offset:offset + 4] == [0x00, 0xF0, 0x20, 0xE3]):
 				number_in_a_row += 1
-				#increment offset by 4, since we are (most likely) aligned properly
+				#if this is the first one, check to see if previous line is a branch instruction. If it is, we don't need to do a branch over our code
+				if(number_in_a_row == 1):
+					#branch instruction has lower half-byte 1, A, or B (bx, b, bl)
+					if((data[offset - 1] & 0x0F) in {0x0A, 0x0B, 0x01}):
+						previous_line_was_branch = True
 			#if it's not a nop but we've found more than the minimum needed number in a row, return the offset and number found
 			elif(number_in_a_row >= 2):
 				#the number of useable spots is one less than the number in a row, since the last one needs to be for a branch
 				total_useable_nops += number_in_a_row - 1
 				number_in_a_row = 0
-
+				#if this is false, need an extra nop for the passover branch
+				if(not(previous_line_was_branch)):
+					total_useable_nops -= 1
+				#otherwise we have an extra nop and we need to reset it to false
+				else:
+					previous_line_was_branch = False
 			offset += 4
 			if(offset >= file_length):
 				return(total_useable_nops)
@@ -51,13 +61,18 @@ def nop_search(data, offset, file_length, min_length_needed = 2):
 			#if we've found a nop, increment count of nops in a row found
 			if(data[offset:offset + 4] == [0x00, 0xF0, 0x20, 0xE3]):
 				number_in_a_row += 1
-				#increment offset by 4, since we are (most likely) aligned properly
-			#if it's not a nop but we've found more than the minimum needed number in a row, return the offset and number found
-			elif(number_in_a_row >= min_length_needed):
-				return(offset - number_in_a_row*4, number_in_a_row)
+				#branch instruction has lower half-byte 1, A, or B (bx, b, bl)
+				if((data[offset - 1] & 0x0F) in {0x0A, 0x0B, 0x01}):
+						previous_line_was_branch = True
+
+
+			#if it's not a nop but we've found more than the minimum needed number in a row, return the offset and number found. If previous line to the nop block was a branch, we have an extra nop
+			elif(number_in_a_row >= min_length_needed or (number_in_a_row >= (min_length_needed - 1) and previous_line_was_branch)):
+				return(offset - number_in_a_row*4, number_in_a_row, previous_line_was_branch)
 			#otherwise, reset the count.
 			else:
 				number_in_a_row = 0
+				previous_line_was_branch = False
 
 			offset += 4
 			#increment offset by 1 (next instruction)
@@ -73,6 +88,17 @@ def dec2hex(dec_array, padding):
 	except:
 		return(str(hex(dec_array)[2:]).zfill(padding).upper())
 	
+
+def compute_branch_instruction(dest, current):
+
+	#(dest - Current)>>2 - 2 OR (dest - PC)>>2 - 1
+	instruction_offset = (dest - current)//4 - 2
+
+	#need to convert to 24-bit signed, add 2^24 if less than 0
+	if(instruction_offset < 0):
+		instruction_offset += 2^24
+
+	return(instruction_offset)
 
 def main():
 	
@@ -148,10 +174,10 @@ def main():
 	for function_number, functions in enumerate(function_array):
 		offset = master_offset
 		#see if we can fit the entire function somewhere
-		offset, nop_count = nop_search(target_file, offset, target_file_length, len(functions)//4)
+		offset, nop_count, no_passover = nop_search(target_file, offset, target_file_length, len(functions)//4)
 		#if so, entire thing goes here
 		if(offset < target_file_length):
-			address_book.append([[offset, nop_count]])
+			address_book.append([[offset, nop_count, no_passover]])
 		else:
 			#reset offset to previous position
 			offset = master_offset
@@ -159,11 +185,11 @@ def main():
 			temp_array = []
 			while True:
 				#find next nop at-least-pair
-				offset, nop_count = nop_search(target_file, offset, target_file_length, 2)
+				offset, nop_count, no_passover = nop_search(target_file, offset, target_file_length, 3)
 
 				#if nop_count is less, will write as many instructions as possible then a branch without link instruction in last spot. If equal, the bx lr will go in last spot. if greater, save for later use
 				if(nop_count < instructions_needed):
-					temp_array.append([offset, nop_count])
+					temp_array.append([offset, nop_count, no_passover])
 					#since we need to keep going, one of the nops is replaced by the branch instruction, so we only found room for one fewer than nop_count instructions
 					instructions_needed -= (nop_count - 1)
 					#print(instructions_needed)
@@ -178,7 +204,7 @@ def main():
 					print('Could not find room for function', function_number)
 					return
 		master_offset = offset + 4
-		#now we now have an array of addresses and the number of instructions we have at that point at address_book[function_number] for the current function
+		#now we now have an array of addresses and the number of instructions and if we need a passover in front we have at that point at address_book[function_number] for the current function
 		#make a new function array. each function subarray is of the form [address, A, B, C, D] where A is at address, B is address + 1, etc.
 		nop_block = 0
 		temp_new_function = []
@@ -186,13 +212,30 @@ def main():
 		instructions_needed = len(functions)//4
 		while True:
 			temp_offset = address_book[function_number][nop_block][0]
+			temp_no_passover_bool = address_book[function_number][nop_block][2]
+			#continue
+
+			
+
 
 			#we have X nops, use the first X-1 of them
-			for address_line in range(address_book[function_number][nop_block][1] - 1):
-				temp_new_function.append([temp_offset, functions[bytes_assigned], functions[bytes_assigned + 1], functions[bytes_assigned + 2], functions[bytes_assigned + 3]])
+			for number, address_line in enumerate(range(address_book[function_number][nop_block][1] - 1)):
+
+				#if first instruction in this block and not a passover, need to write a passover branch, otherwise proceed as normal
+				if(number == 0 and not temp_no_passover_bool):
+
+					#grab last nop block address, then add 4 times the number of instructions
+					passover_destination = address_book[function_number][-1][0] + 4 * address_book[function_number][nop_block][1]
+
+					instruction_offset = compute_branch_instruction(passover_destination, temp_offset)
+					temp_new_function.append([temp_offset, (instruction_offset & 0xFF), (instruction_offset>>2) & 0xFF, (instruction_offset>>4) & 0xFF, 0xEA])
+				else:
+					temp_new_function.append([temp_offset, functions[bytes_assigned], functions[bytes_assigned + 1], functions[bytes_assigned + 2], functions[bytes_assigned + 3]])
+					instructions_needed -= 1
+					bytes_assigned += 4
+
 				temp_offset += 4
-				bytes_assigned += 4
-				instructions_needed -= 1
+				
 
 			#if we have exactly 1 instruction left, stick it in the last nop. otherwise write another branch
 			if(instructions_needed == 1):
@@ -205,13 +248,8 @@ def main():
 			else:
 				#increment nop block now, makes everything simpler
 				nop_block +=1
-				#adjusted signed instruction offset to next instruction
-				#(dest - Current)>>2 - 2 OR (dest - PC)>>2 - 1
-				instruction_offset = (address_book[function_number][nop_block][0] - temp_offset)//4 - 2
 
-				#need to convert to 24-bit signed, add 2^24 if less than 0
-				if(instruction_offset < 0):
-					instruction_offset += 2^24
+				instruction_offset = compute_branch_instruction(address_book[function_number][nop_block][0], temp_offset)
 
 				#instruction_offset is 3 bytes, need to & with FF, FF00, and FF000, then rightshift appropriate number of times to make 2 bytes each. last byte is 0xEA for uncondtional simple branch
 				temp_new_function.append([temp_offset, (instruction_offset & 0xFF), (instruction_offset>>2) & 0xFF, (instruction_offset>>4) & 0xFF, 0xEA])
