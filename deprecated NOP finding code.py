@@ -1,30 +1,13 @@
-from math import e
-from tkinter.filedialog import askopenfilename, asksaveasfilename
-import os
-import csv
-import mmap
+def compute_branch_instruction(dest, current):
 
-def load_file(title_text):
-	search_array = []
-	#file we are looking in
-	source_file = askopenfilename(title = title_text)
-	try:
-		with open(source_file, "r+b") as f:
-			f.seek(0, os.SEEK_END)
-			file_end = f.tell()
-			f.seek(0, 0)
-			block = f.read(file_end)
-		
-			for ch in block:
-				search_array.append(ch)
-			return(search_array)
-	except Exception as e:
-		print('Encountered following error when opening file ', source_file, '\n', e)
-		return([], [], [], [])
-    
-def save_file(data, path):
-	with open(path, "r+b") as f:
-		f.write(bytes(data))
+	#(dest - Current)>>2 - 2 OR (dest - PC)>>2 - 1
+	instruction_offset = (dest - current)//4 - 2
+
+	#need to convert to 24-bit signed, add 2^24 if less than 0
+	if(instruction_offset < 0):
+		instruction_offset += 2^24
+
+	return(instruction_offset)
 
 def nop_search(data, offset, file_length, min_length_needed = 3):
 
@@ -79,28 +62,8 @@ def nop_search(data, offset, file_length, min_length_needed = 3):
 			if(offset >= file_length):
 				return(file_length, 0)
 
-def dec2hex(dec_array, padding):
-	temp_str = ''
-	try:
-		for x in dec_array:
-			temp_str += str(hex(x)[2:]).zfill(padding).upper()
-		return(temp_str)
-	except:
-		return(str(hex(dec_array)[2:]).zfill(padding).upper())
-	
 
-def compute_branch_instruction(dest, current):
-
-	#(dest - Current)>>2 - 2 OR (dest - PC)>>2 - 1
-	instruction_offset = (dest - current)//4 - 2
-
-	#need to convert to 24-bit signed, add 2^24 if less than 0
-	if(instruction_offset < 0):
-		instruction_offset += 2^24
-
-	return(instruction_offset)
-
-def main():
+def nop_inserter_main():
 	
 	#code.bin or .cro file
 	target_file = load_file('Select .bin or cro file to insert code into')
@@ -297,5 +260,3 @@ def main():
 
 	output_file_path = asksaveasfilename(title = 'Select output code file')
 	save_file(target_file, output_file_path)
-	
-main()
