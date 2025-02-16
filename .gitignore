@@ -1,8 +1,4 @@
-
-*.vsidx
-.vs/Chain Insert Function Into Nop/v17/DocumentLayout.backup.json
-CRO Expander.py
-.vs/CRO Expander/v17/DocumentLayout.json
-.vs/CRO Expander/v17/DocumentLayout.backup.json
+*.exe
+*.json
+/.vs
 .vs/CRO Expander/v17/.suo
-output/CRO Expander.exe
