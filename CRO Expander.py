@@ -1,6 +1,7 @@
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 import os
 import hashlib
+from unittest import skip
 
 def load_file(title_text):
 	search_array = []
@@ -63,9 +64,13 @@ def write_dec_to_bytes(decimals, data, start, length = 4):
 	return(data)
 
 
-def update_offset_pointer(data, change, pointer_location, old_code_segment_end, pointer_length = 4, ignore_zero_pointer = True):
+def update_offset_pointer(data, change, pointer_location, old_code_segment_end, pointer_length = 4, ignore_zero_pointer = True, skip_value = 0):
 	
 	temp = hex2dec(data[pointer_location:pointer_location + pointer_length])
+
+	#if we past this value, don't update it
+	if(temp < skip_value):
+		return(data)
 
 	#ignore addresses that are zero or are before the inserted space
 	if((ignore_zero_pointer and temp == 0) or temp < old_code_segment_end):
@@ -107,8 +112,8 @@ def main():
 
 		while True:
 			try:
-				section_to_expand = input('Expand .code, .data, or .bss? (c/d/b):\n').lower()
-				if(section_to_expand in {'c','d','b'}):
+				section_to_expand = input('Expand .code, .data, .bss, or insert into specific address? (c/d/b/a):\n').lower()
+				if(section_to_expand in {'c','d','b', 'a'}):
 					break
 				else:
 					print(section_to_expand, 'is not a valid selection.')
@@ -122,11 +127,30 @@ def main():
 				outstring = '.data'
 			case 'b':
 				outstring = '.bss'
+			case 'a':
+				outstring = 'specific address'
 			case _:
 				outstring = 'error'
-				
 
-		if(section_to_expand in {'c','d'}):
+		insertion_point = 0
+
+		if(section_to_expand == 'a'):
+			while True:
+				try:
+					insertion_point = input('Enter address to insert at (value at that address will be pushed forwards):\n')
+
+					try:
+						insertion_point = int(insertion_point)
+					except:
+						insertion_point = int(insertion_point, 16)
+
+					print('Inserting at', hex(insertion_point),'\n')
+					break
+				except:
+					print(insertion_point, 'is not an integer.')
+
+
+		if(section_to_expand in {'c','d', 'a'}):
 			print('You can only add space in pages, multiples of 0x1000 bytes')
 			while True:
 				try:
@@ -152,58 +176,54 @@ def main():
 		
 		#get the address of end of code. Note that end-offset is actually the address of the first byte of the NEXT thing
 		code_start_offset = hex2dec(target_file[0xB0:0xB4])
-		if(section_to_expand == 'c'):
+		if(section_to_expand in {'c', 'a'}):
 
+			#insert new bytes for .code
+			if(section_to_expand == 'c'):
+				
+				#if code, insert new code in the "text" at the very end. Need to add the offset to the size, otherwise already defined this
+				insertion_point = hex2dec(target_file[hex2dec(target_file[0xC8:0xCC]):hex2dec(target_file[0xC8:0xCC]) + 0x4]) + hex2dec(target_file[hex2dec(target_file[0xC8:0xCC]) + 0x4:hex2dec(target_file[0xC8:0xCC]) + 0x4 + 0x4])
+				
+				#grab the portion of the file before insertion
+				output_file.extend(target_file[0:insertion_point])
 
-			#insert new code in the "text" at the very end. Need to add the offset to the size
-			insertion_point = hex2dec(target_file[hex2dec(target_file[0xC8:0xCC]):hex2dec(target_file[0xC8:0xCC]) + 0x4]) + hex2dec(target_file[hex2dec(target_file[0xC8:0xCC]) + 0x4:hex2dec(target_file[0xC8:0xCC]) + 0x4 + 0x4])
+				#add new bytes
+				output_file.extend([0xFF]*bytes_to_add)
 
-	
-	
-			in_pointer = 0
-			#first part of body is the code, about half will not change, so do just copy it
-			for _ in range(code_start_offset):
-				output_file.append(target_file[in_pointer])
-				in_pointer += 1
+				skip_check = 0
+						
+			else:
+				
+				#grab the portion of the file before insertion
+				output_file.extend(target_file[0:insertion_point])
+				#outfile now has a copy of the date
 
-			#now add the existing code until the start of rodata. in_pointer is now pointing to first byte of code after the previous for loop ended
+				#add new bytes
+				output_file.extend([0xCC]*bytes_to_add)
 
-			while True:
-				#if our reading-pointer from the old file is now pointing at the start of the old rodata location, insert the new bytes and then exit the loop
-				if(insertion_point == in_pointer):
-					#add the new bytes to code
-					for _ in range(bytes_to_add):
-						output_file.append(0xFF)
-					break
-				else:
-					output_file.append(target_file[in_pointer])
-					in_pointer += 1
-
-			#since we broke, in_pointer is still pointing at the start of rodata, while our appending continues at the new offset
-
+				skip_check = insertion_point
+			print(bytes_to_add, insertion_point, skip_check)
+				
 			#add the rest of the data
-			while True:
-				output_file.append(target_file[in_pointer])
-				in_pointer += 1
-				if(in_pointer == file_size):
-					break
+			output_file.extend(target_file[insertion_point:])
 
 			#update header file, move from start to end
 
 			#name offset
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0x84, insertion_point)
+			output_file = update_offset_pointer(output_file, bytes_to_add, 0x84, insertion_point, skip_value = skip_check)
 
 			#new file size
 			file_size += bytes_to_add
 			write_dec_to_bytes(file_size, output_file, 0x90)
 
 			#new code size
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0xB4, 0x0)
+			if(section_to_expand == 'c'):
+				output_file = update_offset_pointer(output_file, bytes_to_add, 0xB4, 0x0)
 
 			#get the other 16 offsets, 4 bytes every 8 bytes from 0xB8
 			for x in range(16):
 				#x*8 because we are skipping over the size of each, since those are not changing
-				output_file = update_offset_pointer(output_file, bytes_to_add, 0xB8 + x*8, insertion_point)
+				output_file = update_offset_pointer(output_file, bytes_to_add, 0xB8 + x*8, insertion_point, skip_value = skip_check)
 
 			#deal with various tables of pointers
 			#point to table, table of pointer locations per entry, entry size
@@ -217,18 +237,29 @@ def main():
 				#print(pointer_pointer, entry_count)
 				for pointer_number in range(entry_count):
 					for sub_offset in table[1]:
-						output_file = update_offset_pointer(output_file, bytes_to_add, pointer_number*table[2] + sub_offset + pointer_pointer, insertion_point)
+						output_file = update_offset_pointer(output_file, bytes_to_add, pointer_number*table[2] + sub_offset + pointer_pointer, insertion_point, skip_value = skip_check)
 
-			#for battle.cro, need to update a single additional address
+			#segment table need to update a single additional address
 			segment_table_offset = hex2dec(output_file[0xC8:0xCC])
 
 			#first update the size of the text table
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4, 0x0)
+			if(section_to_expand == 'c'):
+				output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4, 0x0)
 			#size is 0xC, need to go update the start offsets of the 2nd and 3rd entry
+
+			#ROdata
 			segment_table_offset += 0xC
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point)
+			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point, skip_value = skip_check)
+
+			#if we expanded rodata, expand its size as needed
+			if(section_to_expand == 'a' and hex2dec(output_file[segment_table_offset + 4 :segment_table_offset + 8]) + hex2dec(output_file[segment_table_offset:segment_table_offset + 4]) <= skip_check):
+				output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4, 0x0)
+			else:
+				print('You have tried to expand something by manual entry that is not in rodata, this might go horribly wrong, please ensure you have a backup.')
+				
+			#.data
 			segment_table_offset += 0xC
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point)
+			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point, skip_value = skip_check)
 
 
 		#otherwise if we are updating just .data or .bss
