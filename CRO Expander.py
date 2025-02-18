@@ -1,6 +1,6 @@
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 import os
-import hashlib
+#import hashlib
 from unittest import skip
 
 def load_file(title_text):
@@ -301,10 +301,10 @@ def main():
 
 
 		#redo hashes
-		output_file = header_hash(output_file, 0x0, 0x80, code_start_offset)
-		output_file = header_hash(output_file, 0x20, code_start_offset, hex2dec(target_file[0xC0:0xC4]))
-		output_file = header_hash(output_file, 0x40, hex2dec(target_file[0xC0:0xC4]), hex2dec(target_file[0xB8:0xBC]))
-		output_file = header_hash(output_file, 0x60, hex2dec(target_file[0xB8:0xBC]), -1)
+		#output_file = header_hash(output_file, 0x0, 0x80, code_start_offset)
+		#output_file = header_hash(output_file, 0x20, code_start_offset, hex2dec(target_file[0xC0:0xC4]))
+		#output_file = header_hash(output_file, 0x40, hex2dec(target_file[0xC0:0xC4]), hex2dec(target_file[0xB8:0xBC]))
+		#output_file = header_hash(output_file, 0x60, hex2dec(target_file[0xB8:0xBC]), -1)
 
 
 		output_file_path = asksaveasfilename(title = 'Select output cro file')
