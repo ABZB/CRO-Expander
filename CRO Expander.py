@@ -212,16 +212,16 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, insertio
 				
 	match section_to_expand:
 		case 'c':
-			print('Added', hex(bytes_to_add), 'bytes to the end of', outstring, 'which is', hex(bytes_to_add//4), 'instructions, starting at address', hex(insertion_point), '.\n\n')
+			print('Added', hex(bytes_to_add), 'bytes to ', outstring, 'which is', hex(bytes_to_add//4), 'instructions, starting at address', hex(insertion_point), '.\n\n')
 		case 'd':
-			print('Added', hex(bytes_to_add), 'bytes to the end of', outstring, 'starting at address', hex(hex2dec(output_file[0x90:0x94]) - bytes_to_add), '.\n\n')
+			print('Added', hex(bytes_to_add), 'bytes to ', outstring, 'starting at address', hex(hex2dec(output_file[0x90:0x94]) - bytes_to_add), '.\n\n')
 		case 'b':
-			print('Added', hex(bytes_to_add), 'bytes to the end of', outstring, '.\n\n')
+			print('Added', hex(bytes_to_add), 'bytes to ', outstring, '.\n\n')
 	
 	return(output_file)
 
 
-def cro_expansion_user_input(target_file, outstring):
+def cro_expansion_user_input(target_file, file_size):
 	
 	while True:
 		try:
@@ -283,9 +283,9 @@ def cro_expansion_user_input(target_file, outstring):
 				print(pages_to_add, 'is not an integer.')
 
 				
-	return(expand_cro(target_file, section_to_expand, bytes_to_add, outstring, insertion_point = 0))
+	return(expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_size, insertion_point = 0))
 
-def repoint_expand(target_file, output_table):
+def repoint_expand(target_file, process_to_execute, file_size):
 	
 	segment_table_offset = hex2dec(target_file[0xC8:0xCC])
 
