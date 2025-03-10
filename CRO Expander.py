@@ -309,13 +309,13 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 	while True:
 		try:
-			find_method = input('Search by either a location where the table/function address is written TO, or by the actual address of the table/function:\n').lower()
-			if(process_to_execute in {'w','a'}):
+			find_method = input('Search by either a location where the table/function address is written TO, or by the actual address of the table/function (w/a) :\n').lower()
+			if(find_method in {'w','a'}):
 				break
 			else:
-				print(process_to_execute, 'is not a valid selection.')
+				print(find_method, 'is not a valid selection.')
 		except:
-			print(process_to_execute, 'is not understood.')
+			print(find_method, 'is not understood.')
 
 	while True:
 		try:
@@ -507,9 +507,10 @@ def main():
 		section_to_expand = ''
 		bytes_to_add = 0
 		output_file = []
-
+		process_to_execute = ''
 		while True:
 			try:
+				process_to_execute = input('Expand .cro segment, expand a table, or repoint a function: (s/t/f)\n').lower()
 				if(process_to_execute in {'s','t','f'}):
 					break
 				else:
