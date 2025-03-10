@@ -510,7 +510,6 @@ def main():
 
 		while True:
 			try:
-				process_to_execute = input('Expand .cro segment, expand a table, or repoint a function:\n(s/t/f)').lower()
 				if(process_to_execute in {'s','t','f'}):
 					break
 				else:
