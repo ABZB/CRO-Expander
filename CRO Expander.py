@@ -287,6 +287,8 @@ def cro_expansion_user_input(target_file, file_size):
 
 def repoint_expand(target_file, process_to_execute, file_size):
 	
+	output_file = target_file.copy()
+
 	segment_table_offset = hex2dec(target_file[0xC8:0xCC])
 
 	code_start = hex2dec(target_file[segment_table_offset:segment_table_offset + 4])
@@ -295,7 +297,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	bss_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
 
 	start_table = [code_start, rodata_start, data_start, bss_start]
-	output_table = []
 
 	patch_table_offset = hex2dec(target_file[0x128:0x12C])
 	patch_table_item_count = hex2dec(target_file[0x12C:0x130])
@@ -407,7 +408,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				#subtract segment offset from target address
 				update_value -= start_table[target_segment]
 				for address in function_list:
-					write_dec_to_bytes(update_value - start_table[target_file[address + 0x5]], target_file, address + 8, length = 4)
+					output_file = write_dec_to_bytes(update_value - start_table[target_file[address + 0x5]], target_file, address + 8, length = 4)
 			else:
 				#print all the addreses where the call appears
 				while True:
@@ -428,11 +429,13 @@ def repoint_expand(target_file, process_to_execute, file_size):
 						print(update_target, 'is not an integer.')
 
 				output_file = write_dec_to_bytes(update_value - start_table[target_file[function_list[x] + 0x5]], target_file, function_list[x] + 8, length = 4)
+		else:
+			output_file = write_dec_to_bytes(update_value - start_table[target_file[function_list[0] + 0x5]], target_file, function_list[0] + 8, length = 4)
+
 	
 	#table expansion case
 	else:
 
-		lowest_next_table = 0
 
 		for line in range(patch_table_item_count):
 
@@ -449,7 +452,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				temp_segment_offset = start_table[line_thing[0x5]]
 
 				#move the table forward by update_value bytes
-				write_dec_to_bytes(temp_address + update_value, target_file, line*0xC + patch_table_offset + 8, length = 4)
+				output_file = write_dec_to_bytes(temp_address + update_value, target_file, line*0xC + patch_table_offset + 8, length = 4)
 
 		section_to_expand = ''
 		outstring = ''
@@ -472,7 +475,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		end_bytes = 0x1000
 		#inserts bytes between end of current table and start of the next
 		if(lowest_next_table != 0):
-			output_file = expand_cro(target_file, section_to_expand, update_value, outstring, file_size, insertion_point = lowest_next_table + start_table[target_segment])
+			output_file = expand_cro(output_file, section_to_expand, update_value, outstring, file_size, insertion_point = lowest_next_table + start_table[target_segment])
 			#need to pad with extra bytes to avoid crash
 			end_bytes -= update_value
 		else:
@@ -495,7 +498,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 		#just in case expand a table by exactly 0x1000
 		if(end_bytes > 0):
-			output_file = expand_cro(output_file, section_to_expand, end_bytes, outstring, file_size, insertion_point = 0)
+			output_file = expand_cro(output_file, section_to_expand, end_bytes, outstring, file_size, insertion_point = start_table[target_segment] + len_table[target_segment])
 
 	return(output_file)
 
