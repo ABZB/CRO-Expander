@@ -472,7 +472,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		end_bytes = 0x1000
 		#inserts bytes between end of current table and start of the next
 		if(lowest_next_table != 0):
-			output_file = expand_cro(target_file, section_to_expand, update_value, outstring, file_size, insertion_point = lowest_next_table)
+			output_file = expand_cro(target_file, section_to_expand, update_value, outstring, file_size, insertion_point = lowest_next_table + start_table[target_segment])
 			#need to pad with extra bytes to avoid crash
 			end_bytes -= update_value
 		else:
