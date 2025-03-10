@@ -442,6 +442,8 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	#table expansion case
 	else:
 
+		#latest point to insert the balancing bytes is the end of this section
+		lowest_next_table = start_table[target_segment] + len_table[target_segment]
 
 		for line in range(patch_table_item_count):
 
