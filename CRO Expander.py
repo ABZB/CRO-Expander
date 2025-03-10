@@ -85,6 +85,8 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 	output_file = []
 	print('Adding', bytes_to_add, 'bytes to', outstring)
 
+	print(section_to_expand)
+
 	#only need to do all of this if we are updating .code sine
 		
 	#get the address of end of code. Note that end-offset is actually the address of the first byte of the NEXT thing
@@ -340,7 +342,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		except:
 			print(find_value, 'is not an integer.')
 
-			
+	target_patch = 0
 	#look for our function
 	if(find_method == 'w'):
 		for line in range(patch_table_item_count):
@@ -353,6 +355,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(temp_address == find_value):
 				target_segment = line_thing[0x5]
 				target_addend = hex2dec(line_thing[0x8:0xC])
+				target_patch = line*0xC + patch_table_offset
 				break
 	#method a, we need to find the entry where addend + segment_start == entry
 	elif(find_method == 'a'):
@@ -365,6 +368,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(temp_address == find_value):
 				target_segment = line_thing[0x5]
 				target_addend = hex2dec(line_thing[0x8:0xC])
+				target_patch = line*0xC + patch_table_offset
 				break
 
 	if(target_addend == 0):
@@ -447,22 +451,27 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		#latest point to insert the balancing bytes is the end of this section
 		lowest_next_table = start_table[target_segment] + len_table[target_segment]
 
-		for line in range(patch_table_item_count):
 
+		for line in range(patch_table_item_count):
 			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
 
+
+			#offset that this line is writing
+			temp_line_target_offset = hex2dec(line_thing[0x8:0xC])
+
 			#look for something with greater value in its own segment, or in .rodata if .code
-			if(hex2dec(line_thing[0x8:0xC]) > target_addend and (line_thing[0x5] == target_segment or (target_segment == 0 and line_thing[0x5] == 1))):
+			if(temp_line_target_offset > target_addend and (line_thing[0x5] == target_segment or (target_segment == 0 and line_thing[0x5] == 1))):
 
-				#for find the next table start
-				if(hex2dec(line_thing[0x8:0xC]) < lowest_next_table or lowest_next_table == 0):
-					lowest_next_table = hex2dec(line_thing[0x8:0xC])
+				#if this is nearer then the current lowest next table, replace it
+				if(temp_line_target_offset < lowest_next_table):
+					lowest_next_table = temp_line_target_offset
 
-				temp_address = hex2dec(line_thing[0x8:0xC])
-				temp_segment_offset = start_table[line_thing[0x5]]
+				#temp_segment_offset = start_table[line_thing[0x5]]
 
 				#move the table forward by update_value bytes
-				output_file = write_dec_to_bytes(temp_address + update_value, target_file, line*0xC + patch_table_offset + 8, length = 4)
+				#output_file = write_dec_to_bytes(temp_line_target_offset + update_value, target_file, line*0xC + patch_table_offset + 8, length = 4)
+
+				#print(line*0xC + patch_table_offset + 8, temp_line_target_offset, update_value)
 
 		section_to_expand = ''
 		outstring = ''
@@ -508,7 +517,28 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 		#just in case expand a table by exactly 0x1000
 		if(end_bytes > 0):
-			output_file = expand_cro(output_file, section_to_expand, end_bytes, outstring, file_size, insertion_point = start_table[target_segment] + len_table[target_segment])
+			output_file.extend([0xCC]*end_bytes)
+		#check if end is more than 0x1000 0xCC bytes past end of .data, if so delete them and update total length
+
+	ptr = len(output_file) - 1
+	ctr = 0
+	data_end = output_file[0xb8:0xb8 + 4] + output_file[0xBC:0xBC + 4]
+
+	#remove padding in multiples of 0x1000
+	while True:
+		if(output_file[ptr] == 0xCC):
+			ctr += 1
+		else:
+			break
+		if(ptr <= data_end):
+			break
+		ptr -= 1
+	if(ctr >= 0x1000):
+		ctr = int(ctr // 0x1000)*0x1000
+		output_file = output_file[:-ctr]
+		write_dec_to_bytes(hex2dec(output_file[0xB4: 0xB4 + 4]) - ctr, output_file, 0xB4, length = 4)
+
+
 
 	return(output_file)
 
