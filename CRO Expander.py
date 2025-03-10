@@ -525,11 +525,12 @@ def main():
 		else:
 			output_file = repoint_expand(target_file, process_to_execute, file_size)
 
+		if(output_file != []):
 
-
-		output_file_path = asksaveasfilename(title = 'Select output cro file')
-		save_file(output_file, output_file_path)
-
+			output_file_path = asksaveasfilename(title = 'Select output cro file')
+			save_file(output_file, output_file_path)
+		else:
+			print('Empty output!')
 
 
 
