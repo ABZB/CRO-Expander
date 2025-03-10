@@ -166,8 +166,8 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 		#if we expanded rodata, expand its size as needed
 		if(section_to_expand == 'a' and hex2dec(output_file[segment_table_offset + 4 :segment_table_offset + 8]) + hex2dec(output_file[segment_table_offset:segment_table_offset + 4]) <= skip_check):
 			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4, 0x0)
-		else:
-			print('You have tried to expand something by manual entry that is not in rodata, this might go horribly wrong, please ensure you have a backup.')
+		#else:
+			#print('You have tried to expand something by manual entry that is not in rodata, this might go horribly wrong, please ensure you have a backup.')
 				
 		#.data
 		segment_table_offset += 0xC
@@ -322,7 +322,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(find_method == 'w'):
 				find_value = input('Enter an address where the pointer to your table/function is written to:\n')
 			elif(find_method == 'a'):
-				find_value = input('Enter an the address of your table/function:\n')
+				find_value = input('Enter the address of your table/function:\n')
 			try:
 				find_value = int(find_value)
 			except:
@@ -369,7 +369,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(process_to_execute == 't'):
 				update_value = input('Enter the number of bytes by which to expand your table:\n')
 			elif(process_to_execute == 'f'):
-				update_value = input('Enter an the address to which you want to repoint the function:\n')
+				update_value = input('Enter the absolute address to which you want to repoint the function:\n')
 			try:
 				update_value = int(update_value)
 			except:
@@ -521,7 +521,7 @@ def main():
 
 		if(process_to_execute == 's'):
 			output_file = cro_expansion_user_input(target_file, file_size)
-		#first get the data we need in either case
+		#otherwise something in patch table
 		else:
 			output_file = repoint_expand(target_file, process_to_execute, file_size)
 
