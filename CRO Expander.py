@@ -469,7 +469,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				section_to_expand = 'c'
 				outstring = '.code table'
 			case 1:
-				section_to_expand = 'c'
+				section_to_expand = 'a'
 				outstring = '.rodata table'
 			case 2:
 				section_to_expand = 'd'
