@@ -80,7 +80,7 @@ def update_offset_pointer(data, change, pointer_location, old_code_segment_end, 
 
 
 
-def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, insertion_point = 0):
+def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_size, insertion_point = 0):
 	
 	output_file = []
 	print('Adding', bytes_to_add, 'bytes to', outstring)
@@ -295,12 +295,11 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	bss_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
 
 	start_table = [code_start, rodata_start, data_start, bss_start]
-
+	output_table = []
 
 	patch_table_offset = hex2dec(target_file[0x128:0x12C])
 	patch_table_item_count = hex2dec(target_file[0x12C:0x130])
 			
-	process_to_execute = ''
 	find_value = 0
 
 	target_segment = 0
@@ -520,10 +519,10 @@ def main():
 				print(process_to_execute, 'is not understood.')
 
 		if(process_to_execute == 's'):
-			output_file = cro_expansion_user_input(target_file)
+			output_file = cro_expansion_user_input(target_file, file_size)
 		#first get the data we need in either case
 		else:
-			output_file = repoint_expand(target_file, output_file)
+			output_file = repoint_expand(target_file, process_to_execute, file_size)
 
 
 
