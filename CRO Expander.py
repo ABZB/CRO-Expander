@@ -296,7 +296,13 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	data_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 4])
 	bss_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
 
+	code_len = hex2dec(target_file[segment_table_offset + 4:segment_table_offset + 4 + 4])
+	rodata_len = hex2dec(target_file[segment_table_offset + 0xC + 4:segment_table_offset + 0xC + 4 + 4])
+	data_len = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 4 + 4])
+	bss_len = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 0xC + 4 + 4])
+
 	start_table = [code_start, rodata_start, data_start, bss_start]
+	len_table = [code_len, rodata_len, data_len, bss_len]
 
 	patch_table_offset = hex2dec(target_file[0x128:0x12C])
 	patch_table_item_count = hex2dec(target_file[0x12C:0x130])
