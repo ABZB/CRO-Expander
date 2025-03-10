@@ -393,10 +393,12 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	if(process_to_execute == 'f'):
 		function_list = []
 		for line in range(patch_table_item_count):
-			line_thing = hex2dec(target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC])
+			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
 			#found instance
 
-			if(line_thing == target_addend and line_thing[0x5] == target_segment):
+
+
+			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
 				function_list.append(line*0xC + patch_table_offset)
 
 		temp_len = len(function_list)
