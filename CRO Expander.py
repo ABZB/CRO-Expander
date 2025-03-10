@@ -388,10 +388,10 @@ def repoint_expand(target_file, output_table):
 	if(process_to_execute == 'f'):
 		function_list = []
 		for line in range(patch_table_item_count):
-			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+			line_thing = hex2dec(target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC])
 			#found instance
 
-			if(line_thing[0x8:0xC] == target_addend and line_thing[0x5] == target_segment):
+			if(line_thing == target_addend and line_thing[0x5] == target_segment):
 				function_list.append(line*0xC + patch_table_offset)
 
 		temp_len = len(function_list)
@@ -409,7 +409,7 @@ def repoint_expand(target_file, output_table):
 				#subtract segment offset from target address
 				update_value -= start_table[target_segment]
 				for address in function_list:
-					write_dec_to_bytes(update_value, target_file, address + 8, length = 4)
+					write_dec_to_bytes(update_value - start_table[target_file[address + 0x5]], target_file, address + 8, length = 4)
 			else:
 				#print all the addreses where the call appears
 				while True:
@@ -429,18 +429,75 @@ def repoint_expand(target_file, output_table):
 					except:
 						print(update_target, 'is not an integer.')
 
-				write_dec_to_bytes(update_value, target_file, function_list[x] + 8, length = 4)
-
-			if(target_segment == line[0x5] and target_addend == hex2dec(line[0x8:0xC])):
-				target_addend = update_value - hex2dec(line[0x8:0xC])
-		#nothing else to do, so return and write
-		return(target_file)
+				output_file = write_dec_to_bytes(update_value - start_table[target_file[function_list[x] + 0x5]], target_file, function_list[x] + 8, length = 4)
 	
 	#table expansion case
 	else:
-	
+
+		lowest_next_table = 0
+
+		for line in range(patch_table_item_count):
+
+			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+
+			#look for something with greater value in its own segment, or in .rodata if .code
+			if(line_thing[0x8:0xC] > target_addend and (line_thing[0x5] == target_segment or (target_segment == 0 and line_thing[0x5] == 1))):
+
+				#find the next table start
+				if(line_thing[0x8:0xC] < lowest_next_table or lowest_next_table == 0):
+					lowest_next_table = line_thing[0x8:0xC]
+
+				temp_address = line_thing[0x8:0xC]
+				temp_segment_offset = start_table[line_thing[0x5]]
+
+				write_dec_to_bytes(temp_address - temp_segment_offset + update_value, target_file, line*0xC + patch_table_offset + 8, length = 4)
+		section_to_expand = ''
+		outstring = ''
+		match target_segment:
+			case 0:
+				section_to_expand = 'c'
+				outstring = '.code table'
+			case 1:
+				section_to_expand = 'c'
+				outstring = '.rodata table'
+			case 2:
+				section_to_expand = 'd'
+				outstring = '.data table'
+			case 3:
+				section_to_expand = 'b'
+				outstring = '.bss table'
+			case _:
+				outstring = 'error'
 		
-	return(output_table)
+		end_bytes = 0x1000
+		#inserts bytes between end of current table and start of the next
+		if(lowest_next_table != 0):
+			output_file = expand_cro(target_file, section_to_expand, update_value, outstring, insertion_point = lowest_next_table)
+			#need to pad with extra bytes to avoid crash
+			end_bytes -= update_value
+		else:
+			#this happens if it's the last table in the segment, just stick them after the end of the table. in rodata in particular, this will cause problems without manual entry
+
+			while True:
+				
+				print('Table is last entry in its segment, please manually locate the address of the first byte after the table (e.g. if the last byte of the table is at 0x100, enter 0x101)')
+				try:
+					insert_target = input('Enter address:\n')
+					try:
+						insert_target = int(insert_target)
+					except:
+						insert_target = int(insert_target, 16)
+
+					print('Updating', hex(insert_target),'\n')
+					break
+				except:
+					print(insert_target, 'is not an integer.')
+
+		#just in case expand a table by exactly 0x1000
+		if(end_bytes > 0):
+			output_file = expand_cro(output_file, section_to_expand, end_bytes, outstring, insertion_point = 0)
+
+	return(output_file)
 
 def main():
 	
@@ -454,7 +511,7 @@ def main():
 
 		while True:
 			try:
-				process_to_execute = input('Expand .cro segment, expand a table, or repoint a function:\n').lower()
+				process_to_execute = input('Expand .cro segment, expand a table, or repoint a function:\n(s/t/f)').lower()
 				if(process_to_execute in {'s','t','f'}):
 					break
 				else:
