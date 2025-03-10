@@ -364,7 +364,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		print('Error, no value found')
 		return([])
 
-
 	while True:
 		try:
 			if(process_to_execute == 't'):
@@ -376,7 +375,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			except:
 				update_value = int(update_value, 16)
 
-			print('Looking for', hex(update_value),'\n')
+			print('Using', hex(update_value),'\n')
 			break
 		except:
 			print(update_value, 'is not an integer.')
