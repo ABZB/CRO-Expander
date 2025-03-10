@@ -439,16 +439,18 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
 
 			#look for something with greater value in its own segment, or in .rodata if .code
-			if(line_thing[0x8:0xC] > target_addend and (line_thing[0x5] == target_segment or (target_segment == 0 and line_thing[0x5] == 1))):
+			if(hex2dec(line_thing[0x8:0xC]) > target_addend and (line_thing[0x5] == target_segment or (target_segment == 0 and line_thing[0x5] == 1))):
 
-				#find the next table start
-				if(line_thing[0x8:0xC] < lowest_next_table or lowest_next_table == 0):
-					lowest_next_table = line_thing[0x8:0xC]
+				#for find the next table start
+				if(hex2dec(line_thing[0x8:0xC]) < lowest_next_table or lowest_next_table == 0):
+					lowest_next_table = hex2dec(line_thing[0x8:0xC])
 
-				temp_address = line_thing[0x8:0xC]
+				temp_address = hex2dec(line_thing[0x8:0xC])
 				temp_segment_offset = start_table[line_thing[0x5]]
 
-				write_dec_to_bytes(temp_address - temp_segment_offset + update_value, target_file, line*0xC + patch_table_offset + 8, length = 4)
+				#move the table forward by update_value bytes
+				write_dec_to_bytes(temp_address + update_value, target_file, line*0xC + patch_table_offset + 8, length = 4)
+
 		section_to_expand = ''
 		outstring = ''
 		match target_segment:
@@ -470,7 +472,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		end_bytes = 0x1000
 		#inserts bytes between end of current table and start of the next
 		if(lowest_next_table != 0):
-			output_file = expand_cro(target_file, section_to_expand, update_value, outstring, insertion_point = lowest_next_table)
+			output_file = expand_cro(target_file, section_to_expand, update_value, outstring, file_size, insertion_point = lowest_next_table)
 			#need to pad with extra bytes to avoid crash
 			end_bytes -= update_value
 		else:
@@ -493,7 +495,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 		#just in case expand a table by exactly 0x1000
 		if(end_bytes > 0):
-			output_file = expand_cro(output_file, section_to_expand, end_bytes, outstring, insertion_point = 0)
+			output_file = expand_cro(output_file, section_to_expand, end_bytes, outstring, file_size, insertion_point = 0)
 
 	return(output_file)
 
