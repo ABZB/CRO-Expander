@@ -544,6 +544,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			target_segment = line_thing[0x5]
 			target_addend = hex2dec(line_thing[0x8:0xC])
 
+			#check if points AT our table
 			if(target_segment + target_addend == old_table_absolute):
 				
 				#segment is now .data
@@ -552,6 +553,15 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				#offset into .data
 				output_file = write_dec_to_bytes(update_value - data_start, output_file, line*0xC + patch_table_offset + 0x8)
 
+			#writes to something IN the table
+			if(target_addend <= write_offset < target_addend + table_length):
+
+				#relative to start of table = (write_offset - target_addend)
+				#add that to new offset of start of table, update_value + (write_offset - target_addend)
+				#bitshift 4 to the left ((update_value + (write_offset - target_addend)) << 4)
+				#and then add 2 for the segment ((update_value + (write_offset - target_addend)) << 4) + 2
+
+				output_file = write_dec_to_bytes(((update_value + (write_offset - target_addend)) << 4) + 2, output_file, line*0xC + patch_table_offset)
 
 
 
