@@ -490,10 +490,32 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				start_table = [code_start, rodata_start, data_start, bss_start]
 				len_table = [code_len, rodata_len, data_len, bss_len]
 			#good_length == table_length if the below passed on the previous loop
+			elif(good_length != table_length):
+				#check if the data in paste-range in unused (it will be all 0xCC or 0xFF, the empty 0x00 often is spaces intended to be written to after loading)
+				#if we have reached this point, we *shouldn't* have out-of-index errors...
+					
+				temp_cur = update_value
+				good_length = 0
+				while True:
 
+					#if we have reached the end of the file, break out of this loop with update_value set to file_size, we will place this table at the end and expand .data accordingly
+					if(temp_cur > file_size):
+						update_value = file_size
+						break
 
+					#value is a valid empty,
+					elif(output_file[temp_cur] in {0xCC, 0xFF}):
 
+						#move table forward to new good section
+						if(good_length == 0):
+							update_value =temp_cur
 
+						good_length += 1
+					else:
+						good_length = 0
+					#table fits in location
+					if(good_length == table_length):
+						break
 
 
 
