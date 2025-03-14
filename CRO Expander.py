@@ -467,12 +467,29 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			except:
 				print(table_length, 'is not an integer.')
 
+				
+		temp = table_length + update_value
+		good_length = 0
+		#first see if target space exists, if not expand table
+		while True:
+				
 
 
+			#if table end is past end of file, expand it
+			if(temp >= file_size or temp - data_start >= data_len):
+				output_file = expand_cro(output_file, 'd', 0x1000, '', len(target_file))
 
+				#update various values
+				file_size = len(output_file)
 
+				data_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 4])
+				bss_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
 
+				data_len = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 4 + 4])
 
+				start_table = [code_start, rodata_start, data_start, bss_start]
+				len_table = [code_len, rodata_len, data_len, bss_len]
+			#good_length == table_length if the below passed on the previous loop
 
 
 
