@@ -518,7 +518,19 @@ def repoint_expand(target_file, process_to_execute, file_size):
 					if(good_length == table_length):
 						print('Moving table to', hex(update_value),'\n')
 						break
+			else:
+				break
 
+		#update_value is now valid start of a place we can fit the table. Just need to copy over the table, then repoint references.
+		old_table_absolute = target_addend + target_segment
+
+		
+
+		#write values to new location
+		for ind in range(table_length):
+			output_file[update_value + ind] = output_file[old_table_absolute + ind]
+			#set old space to 0xCC
+			output_file[old_table_absolute + ind] = 0xCC
 
 
 
