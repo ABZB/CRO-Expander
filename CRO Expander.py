@@ -532,6 +532,18 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			#set old space to 0xCC
 			output_file[old_table_absolute + ind] = 0xCC
 
+		#finally, look for everywhere in relocation patches that either writes a pointer TO the table,or writes a pointer IN the table, and update them
+
+		for line in range(patch_table_item_count):
+			#get the line
+			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+			temp = hex2dec(line_thing[0:4])
+
+			write_offset = (temp >> 4)
+
+			target_segment = line_thing[0x5]
+			target_addend = hex2dec(line_thing[0x8:0xC])
+
 
 
 
