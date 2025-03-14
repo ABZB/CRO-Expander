@@ -449,9 +449,23 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			output_file = write_dec_to_bytes(update_value - start_table[target_file[function_list[0] + 0x5]], target_file, function_list[0] + 8, length = 4)
 
 	
+	#table move case
 	else:
+		#update_value = new start of table
 
+		#ask user for length of table
+		while True:
+			try:
+				table_length = input('Enter the current length of the table in bytes:\n')
+				try:
+					table_length = int(table_length)
+				except:
+					table_length = int(table_length, 16)
 
+				print('Using', hex(table_length),'\n')
+				break
+			except:
+				print(table_length, 'is not an integer.')
 
 
 
