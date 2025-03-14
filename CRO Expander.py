@@ -314,6 +314,8 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	target_segment = 0
 	target_addend = 0
 
+	table_length = 0
+
 	#we can find the thing we are repointing or expanding either by searching by an address it's written to, or by the value it points to once written (e.g. a function by either the place where its pointer is written, or by the actual address the pointer points to)
 
 	while True:
@@ -342,7 +344,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		except:
 			print(find_value, 'is not an integer.')
 
-	target_patch = 0
 	#look for our function
 	if(find_method == 'w'):
 		for line in range(patch_table_item_count):
@@ -355,7 +356,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(temp_address == find_value):
 				target_segment = line_thing[0x5]
 				target_addend = hex2dec(line_thing[0x8:0xC])
-				target_patch = line*0xC + patch_table_offset
 				break
 	#method a, we need to find the entry where addend + segment_start == entry
 	elif(find_method == 'a'):
@@ -368,7 +368,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(temp_address == find_value):
 				target_segment = line_thing[0x5]
 				target_addend = hex2dec(line_thing[0x8:0xC])
-				target_patch = line*0xC + patch_table_offset
 				break
 
 	if(target_addend == 0):
@@ -501,6 +500,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 					#if we have reached the end of the file, break out of this loop with update_value set to file_size, we will place this table at the end and expand .data accordingly
 					if(temp_cur > file_size):
 						update_value = file_size
+						print('No space that looks unused found before end of file, adding additional room at end of file\n')
 						break
 
 					#value is a valid empty,
@@ -508,13 +508,15 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 						#move table forward to new good section
 						if(good_length == 0):
-							update_value =temp_cur
+							update_value = temp_cur
+							print('Destination looks like it might be used (bytes other than 0xCC or 0xFF detected), attempting table start at', hex(update_value),'\n')
 
 						good_length += 1
 					else:
 						good_length = 0
 					#table fits in location
 					if(good_length == table_length):
+						print('Moving table to', hex(update_value),'\n')
 						break
 
 
