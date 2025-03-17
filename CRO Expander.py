@@ -476,7 +476,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 
 			#if table end is past end of file, expand it
-			if(temp >= file_size or temp - data_start >= data_len):
+			if(temp >= file_size):
 				output_file = expand_cro(output_file, 'd', 0x1000, '', len(target_file))
 
 				#update various values
