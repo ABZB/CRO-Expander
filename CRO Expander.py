@@ -377,7 +377,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	while True:
 		try:
 			if(process_to_execute == 't'):
-				update_value = input('Enter the absolute address to which you want to repoint the function:\n(You can select an address past the current end of the file, the file will be expanded to make room)\n')
+				update_value = input('Enter the absolute address to which you want the table to start at:\n(You can select an address past the current end of the file, the file will be expanded to make room)\n')
 			elif(process_to_execute == 'f'):
 				update_value = input('Enter the absolute address to which you want to repoint the function:\n(Note that if you place a function outside of the .code/.text section it will crash if not on Citra)\n')
 			try:
@@ -387,7 +387,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 			print('Using', hex(update_value),'\n')
 
-			if(process_to_execute == 't' and start_table[data_start] > update_value):
+			if(process_to_execute == 't' and data_start > update_value):
 				print('Selected move-to address is not in .data. Moving Table to a non-.data location is not supported. Please select a location that is at least',start_table[data_start],', and a value that is at least',data_start + data_len,'is recommended unless you have expanded the .data section already and know that the target region is unused.\n')
 			else:
 				break
