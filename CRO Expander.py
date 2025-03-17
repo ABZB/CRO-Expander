@@ -562,14 +562,27 @@ def main():
 
 
 		while True:
-			again_bool = input('Continue Editing?\nY = Continue Editing Current CRO\nS = Select Another CRO\nN = Exit Program\n').lower()
+			again_bool = input('Continue Editing?\nY = Continue Editing Current CRO\nS = Save & Select Another CRO\nN = Save & Exit Program\n').lower()
 			if(again_bool == 'y'):
 				load_new_file = False
+				save = False
 				break
 			elif(again_bool == 's'):
 				load_new_file = True
+				save = True
 				break
 			elif(again_bool == 'n'):
-				return
+				save = True
+				exit_next = True
+				break
+
+		if(save):
+			output_file_path = asksaveasfilename(title = 'Select output cro file')
+			save_file(output_file, output_file_path)
+
+		if(exit_next):
+			break
+
+	return(True)
 
 main()
