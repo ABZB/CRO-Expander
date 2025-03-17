@@ -488,12 +488,8 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			temp = hex2dec(line_thing[0:4])
 
 			write_offset = (temp >> 4)
-
-			new_target_segment = line_thing[0x5]
-			new_target_addend = hex2dec(line_thing[0x8:0xC])
-
 			#check if points AT our table
-			if(new_target_segment + new_target_addend == old_table_absolute):
+			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
 				
 				#segment is now .data
 				target_file[line*0xC + patch_table_offset + 0x5] = 0x2
@@ -512,13 +508,15 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				output_file = write_dec_to_bytes(((update_value + (write_offset - target_addend)) << 4) + 2, output_file, line*0xC + patch_table_offset)
 				print('Updated pointer in table at', update_value + (write_offset - target_addend))
 
+	else:
 	#Function case
-	for line in range(patch_table_item_count):
-		line_thing = output_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
-		#found instance
-		if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
-			output_file = write_dec_to_bytes(update_value - start_table[output_file[line*0xC + patch_table_offset + 0x5]], output_file, line*0xC + patch_table_offset + 8, length = 4)
-			print('Updated function call/pointer at')
+		for line in range(patch_table_item_count):
+			line_thing = output_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+			#found instance
+			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
+				output_file = write_dec_to_bytes(update_value - start_table[output_file[line*0xC + patch_table_offset + 0x5]], output_file, line*0xC + patch_table_offset + 8, length = 4)
+				temp = hex2dec(line_thing[0:4])
+				print('Updated function call/pointer at', (temp >> 4) + start_table[temp & 0xF],'\nPatch Table entry #',line,'address:',hex(line*0xC + patch_table_offset))
 
 	return(output_file)
 
@@ -565,6 +563,7 @@ def main():
 				load_new_file = False
 				break
 			elif(again_bool == 's'):
+				load_new_file = True
 				break
 			elif(again_bool == 'n'):
 				return
