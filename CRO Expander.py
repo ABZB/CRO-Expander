@@ -391,7 +391,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				print('Selected move-to address is not in .data. Moving Table to a non-.data location is not supported. Please select a location that is at least',start_table[data_start],', and a value that is at least',data_start + data_len,'is recommended unless you have expanded the .data section already and know that the target region is unused.\n')
 			else:
 				break
-		except:
 		except Exception as e:
 			print(update_value, 'is not an integer.')
 			print(e)
@@ -473,7 +472,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		#first see if target space exists, if not expand table
 		while True:
 				
-
 
 			#if table end is past end of file, expand it
 			if(temp >= file_size):
