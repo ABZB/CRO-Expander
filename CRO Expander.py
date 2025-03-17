@@ -1,3 +1,4 @@
+from json import load
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 import os
 #import hashlib
@@ -394,8 +395,9 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		except Exception as e:
 			print(update_value, 'is not an integer.')
 			print(e)
-			
 
+
+	
 	#table move case
 	if(process_to_execute == 't'):
 		#update_value = new start of table
@@ -454,15 +456,14 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 						#move table forward to new good section
 						if(good_length == 0):
-							update_value = temp_cur
-							#print('Destination looks like it might be used (bytes other than 0xCC or 0xFF detected), attempting table start at', hex(update_value),'\n')
-
+							if(update_value != temp_cur):
+								print('Destination looks like it might be used (bytes other than 0xCC or 0xFF detected), attempting table start at', hex(update_value),'\n')
+								update_value = temp_cur
 						good_length += 1
 					else:
 						good_length = 0
 					#table fits in location
 					if(good_length == table_length):
-						print('Moving table to', hex(update_value),'\n')
 						break
 			else:
 				break
@@ -477,8 +478,10 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			#set old space to 0xCC
 			output_file[old_table_absolute + ind] = 0xCC
 
+		
+		print('Table now starts at', hex(update_value),'\n')
+		
 		#finally, look for everywhere in relocation patches that either writes a pointer TO the table,or writes a pointer IN the table, and update them
-
 		for line in range(patch_table_item_count):
 			#get the line
 			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
@@ -497,8 +500,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 				#offset into .data
 				output_file = write_dec_to_bytes(update_value - data_start, output_file, line*0xC + patch_table_offset + 0x8)
-				print('Moved table reference to',old_table_absolute, 'to', update_value)
-
+				print('Updated reference to table at', write_offset + start_table[temp & 0xF])
 			#writes to something IN the table
 			if(target_addend <= write_offset < target_addend + table_length):
 
@@ -508,28 +510,29 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				#and then add 2 for the segment ((update_value + (write_offset - target_addend)) << 4) + 2
 
 				output_file = write_dec_to_bytes(((update_value + (write_offset - target_addend)) << 4) + 2, output_file, line*0xC + patch_table_offset)
+				print('Updated pointer in table at', update_value + (write_offset - target_addend))
 
-	#Function case. in Table case, need to check for any functions anyway
+	#Function case
 	for line in range(patch_table_item_count):
-		line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+		line_thing = output_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
 		#found instance
 		if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
-			#write new offset from start of .code
-			output_file = write_dec_to_bytes(update_value - target_segment, output_file, line*0xC + patch_table_offset + 0x8, length = 4)
-			print('Moved function reference/call from', target_addend, 'to', update_value)
-
+			output_file = write_dec_to_bytes(update_value - start_table[output_file[line*0xC + patch_table_offset + 0x5]], output_file, line*0xC + patch_table_offset + 8, length = 4)
+			print('Updated function call/pointer at')
 
 	return(output_file)
 
 def main():
 	
+	load_new_file = True
+	target_file = []
+	output_file = []
 	while True:
-		target_file = load_file('Select cro file')
-
+		if(load_new_file):
+			target_file = load_file('Select cro file')
+		else:
+			target_file = output_file
 		file_size = len(target_file)
-		section_to_expand = ''
-		bytes_to_add = 0
-		output_file = []
 		process_to_execute = ''
 		while True:
 			try:
@@ -557,8 +560,11 @@ def main():
 
 
 		while True:
-			again_bool = input('Do something more?\nY/N\n').lower()
+			again_bool = input('Continue Editing?\nY = Continue Editing Current CRO\nS = Select Another CRO\nN = Exit Program\n').lower()
 			if(again_bool == 'y'):
+				load_new_file = False
+				break
+			elif(again_bool == 's'):
 				break
 			elif(again_bool == 'n'):
 				return
