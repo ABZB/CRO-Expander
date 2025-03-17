@@ -486,11 +486,11 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 			write_offset = (temp >> 4)
 
-			target_segment = line_thing[0x5]
-			target_addend = hex2dec(line_thing[0x8:0xC])
+			new_target_segment = line_thing[0x5]
+			new_target_addend = hex2dec(line_thing[0x8:0xC])
 
 			#check if points AT our table
-			if(target_segment + target_addend == old_table_absolute):
+			if(new_target_segment + new_target_addend == old_table_absolute):
 				
 				#segment is now .data
 				target_file[line*0xC + patch_table_offset + 0x5] = 0x2
