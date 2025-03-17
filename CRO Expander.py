@@ -455,7 +455,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 						#move table forward to new good section
 						if(good_length == 0):
 							update_value = temp_cur
-							print('Destination looks like it might be used (bytes other than 0xCC or 0xFF detected), attempting table start at', hex(update_value),'\n')
+							#print('Destination looks like it might be used (bytes other than 0xCC or 0xFF detected), attempting table start at', hex(update_value),'\n')
 
 						good_length += 1
 					else:
