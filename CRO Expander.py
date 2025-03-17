@@ -392,7 +392,9 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			else:
 				break
 		except:
+		except Exception as e:
 			print(update_value, 'is not an integer.')
+			print(e)
 			
 	#now cycle through the entire table. In case function, just update the value to new location. If it is table, push forward by X bytes
 
