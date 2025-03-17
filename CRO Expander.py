@@ -523,7 +523,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				break
 
 		#update_value is now valid start of a place we can fit the table. Just need to copy over the table, then repoint references.
-		old_table_absolute = target_addend + target_segment
+		old_table_absolute = target_addend + start_table[target_segment]
 		
 
 		#write values to new location
