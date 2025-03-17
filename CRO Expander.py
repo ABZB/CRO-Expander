@@ -395,62 +395,9 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			print(update_value, 'is not an integer.')
 			print(e)
 			
-	#now cycle through the entire table. In case function, just update the value to new location. If it is table, push forward by X bytes
 
-	#Function case
-	if(process_to_execute == 'f'):
-		function_list = []
-		for line in range(patch_table_item_count):
-			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
-			#found instance
-
-
-
-			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
-				function_list.append(line*0xC + patch_table_offset)
-
-		temp_len = len(function_list)
-		if(temp_len > 1):
-			print('Found ', temp_len, ' calls to this function.')
-			while True:
-				try:
-					function_all = input('Update all, or select one?:\n(u/n)').lower()
-					if(function_all in {'u', 'n'}):
-						break
-				except:
-					print(function_all, ' is not a valid selection')
-
-			if(function_all == 'u'):
-				#subtract segment offset from target address
-				update_value -= start_table[target_segment]
-				for address in function_list:
-					output_file = write_dec_to_bytes(update_value - start_table[target_file[address + 0x5]], target_file, address + 8, length = 4)
-			else:
-				#print all the addreses where the call appears
-				while True:
-	
-					print('The following are the addresses\m')
-					for x, address in enumerate(function_list):
-						print(x,': ',hex(dec2hex(target_file[address:address + 4])),'\n')
-					try:
-						update_target = input('Enter the line number of the particular address you want to update:\n')
-						try:
-							update_target = int(update_target)
-						except:
-							update_target = int(update_target, 16)
-
-						print('Updating', hex(update_target),'\n')
-						break
-					except:
-						print(update_target, 'is not an integer.')
-
-				output_file = write_dec_to_bytes(update_value - start_table[target_file[function_list[x] + 0x5]], target_file, function_list[x] + 8, length = 4)
-		else:
-			output_file = write_dec_to_bytes(update_value - start_table[target_file[function_list[0] + 0x5]], target_file, function_list[0] + 8, length = 4)
-
-	
 	#table move case
-	else:
+	if(process_to_execute == 't'):
 		#update_value = new start of table
 		#ask user for length of table
 		while True:
@@ -561,6 +508,12 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 				output_file = write_dec_to_bytes(((update_value + (write_offset - target_addend)) << 4) + 2, output_file, line*0xC + patch_table_offset)
 
+	for line in range(patch_table_item_count):
+		line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+		#found instance
+		if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
+			#write new offset from start of .code
+			output_file = write_dec_to_bytes(update_value - target_segment, output_file, line*0xC + patch_table_offset + 0x8, length = 4)
 
 
 	return(output_file)
