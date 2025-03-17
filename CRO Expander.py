@@ -1,4 +1,3 @@
-from json import load
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 import os
 #import hashlib
@@ -373,7 +372,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 	if(target_addend == 0):
 		print('Error, no value found')
-		return([])
+		return(output_file)
 
 	while True:
 		try:
@@ -424,15 +423,15 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 			#if table end is past end of file, expand it
 			if(temp >= file_size):
-				output_file = expand_cro(output_file, 'd', 0x1000, '', len(target_file))
+				output_file = expand_cro(output_file, 'd', 0x1000, '', len(output_file))
 
 				#update various values
 				file_size = len(output_file)
 
-				data_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 4])
-				bss_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
+				data_start = hex2dec(output_file[segment_table_offset + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 4])
+				bss_start = hex2dec(output_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
 
-				data_len = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 4 + 4])
+				data_len = hex2dec(output_file[segment_table_offset + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 4 + 4])
 
 				start_table = [code_start, rodata_start, data_start, bss_start]
 				len_table = [code_len, rodata_len, data_len, bss_len]
@@ -464,6 +463,13 @@ def repoint_expand(target_file, process_to_execute, file_size):
 						good_length = 0
 					#table fits in location
 					if(good_length == table_length):
+						#just make sure we have the .data expanded in case we are in the padding region
+						if(data_start + data_len < file_size):
+							#need to update data size in header plus the segment table
+							output_file = write_dec_to_bytes(file_size - data_start, output_file, 0xBC, length = 4)
+							output_file = write_dec_to_bytes(file_size - data_start, output_file, (hex2dec(output_file[0xC8:0xCC]) + 2*0xC + 0x4), length = 4)
+
+
 						break
 			else:
 				break
@@ -484,7 +490,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		#finally, look for everywhere in relocation patches that either writes a pointer TO the table,or writes a pointer IN the table, and update them
 		for line in range(patch_table_item_count):
 			#get the line
-			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+			line_thing = output_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
 			temp = hex2dec(line_thing[0:4])
 
 			write_offset = (temp >> 4)
@@ -492,11 +498,12 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
 				
 				#segment is now .data
-				target_file[line*0xC + patch_table_offset + 0x5] = 0x2
+				output_file[line*0xC + patch_table_offset + 0x5] = 0x2
 
 				#offset into .data
-				output_file = write_dec_to_bytes(update_value - data_start, output_file, line*0xC + patch_table_offset + 0x8)
-				print('Updated reference to table at', write_offset + start_table[temp & 0xF])
+				output_file = write_dec_to_bytes(update_value - start_table[output_file[line*0xC + patch_table_offset + 0x5]], output_file, line*0xC + patch_table_offset + 0x8, length = 4)
+				print('Updated reference to table at', hex(write_offset + start_table[temp & 0xF]))
+				print(hex(line*0xC + patch_table_offset))
 			#writes to something IN the table
 			if(target_addend <= write_offset < target_addend + table_length):
 
@@ -506,7 +513,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				#and then add 2 for the segment ((update_value + (write_offset - target_addend)) << 4) + 2
 
 				output_file = write_dec_to_bytes(((update_value + (write_offset - target_addend)) << 4) + 2, output_file, line*0xC + patch_table_offset)
-				print('Updated pointer in table at', update_value + (write_offset - target_addend))
+				print('Updated pointer in table at', hex(update_value + (write_offset - target_addend)))
 
 	else:
 	#Function case
@@ -516,13 +523,15 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
 				output_file = write_dec_to_bytes(update_value - start_table[output_file[line*0xC + patch_table_offset + 0x5]], output_file, line*0xC + patch_table_offset + 8, length = 4)
 				temp = hex2dec(line_thing[0:4])
-				print('Updated function call/pointer at', (temp >> 4) + start_table[temp & 0xF],'\nPatch Table entry #',line,'address:',hex(line*0xC + patch_table_offset))
+				print('Updated function call/pointer at', hex((temp >> 4) + start_table[temp & 0xF]),'\nPatch Table entry #',line,'address:',hex(line*0xC + patch_table_offset))
 
 	return(output_file)
 
 def main():
 	
 	load_new_file = True
+	save = True
+	exit_next = False
 	target_file = []
 	output_file = []
 	while True:
@@ -548,12 +557,7 @@ def main():
 		else:
 			output_file = repoint_expand(target_file, process_to_execute, file_size)
 
-		if(output_file != []):
 
-			output_file_path = asksaveasfilename(title = 'Select output cro file')
-			save_file(output_file, output_file_path)
-		else:
-			print('Empty output!')
 
 
 
