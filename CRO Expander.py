@@ -497,6 +497,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 				#offset into .data
 				output_file = write_dec_to_bytes(update_value - data_start, output_file, line*0xC + patch_table_offset + 0x8)
+				print('Moved table reference to',old_table_absolute, 'to', update_value)
 
 			#writes to something IN the table
 			if(target_addend <= write_offset < target_addend + table_length):
@@ -508,12 +509,14 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 				output_file = write_dec_to_bytes(((update_value + (write_offset - target_addend)) << 4) + 2, output_file, line*0xC + patch_table_offset)
 
+	#Function case. in Table case, need to check for any functions anyway
 	for line in range(patch_table_item_count):
 		line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
 		#found instance
 		if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
 			#write new offset from start of .code
 			output_file = write_dec_to_bytes(update_value - target_segment, output_file, line*0xC + patch_table_offset + 0x8, length = 4)
+			print('Moved function reference/call from', target_addend, 'to', update_value)
 
 
 	return(output_file)
