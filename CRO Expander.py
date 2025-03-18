@@ -386,7 +386,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 			print('Using', hex(update_value),'\n')
 
-			if(process_to_execute == 't' and data_start > update_value):
+			if(process_to_execute == 't' and rodata_start > update_value):
 				print('Selected move-to address is not in .data. Moving Table to a non-.data location is not supported. Please select a location that is at least',start_table[data_start],', and a value that is at least',data_start + data_len,'is recommended unless you have expanded the .data section already and know that the target region is unused.\n')
 			else:
 				break
@@ -428,7 +428,6 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				file_size = len(output_file)
 
 				data_start = hex2dec(output_file[segment_table_offset + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 4])
-				bss_start = hex2dec(output_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
 
 				data_len = hex2dec(output_file[segment_table_offset + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 4 + 4])
 
@@ -477,6 +476,16 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		#update_value is now valid start of a place we can fit the table. Just need to copy over the table, then repoint references.
 		old_table_absolute = target_addend + start_table[target_segment]
 		
+		update_segment = 0
+		#get segment of target location
+		if(update_value > data_start + data_len):
+			update_segment = 3
+		elif(update_value < code_start + code_len):
+			update_segment = 0
+		elif(update_value < data_start):
+			update_segment = 1
+		else:
+				update_segment = 2
 
 		#write values to new location
 		for ind in range(table_length):
@@ -497,23 +506,22 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			#check if points AT our table
 			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
 				
-				#segment is now .data
-				output_file[line*0xC + patch_table_offset + 0x5] = 0x2
+				#set new segment
+				output_file[line*0xC + patch_table_offset + 0x5] = update_segment
 
 				#offset into .data
-				output_file = write_dec_to_bytes(update_value - start_table[output_file[line*0xC + patch_table_offset + 0x5]], output_file, line*0xC + patch_table_offset + 0x8, length = 4)
-				print('Updated reference to table at', hex(write_offset + start_table[temp & 0xF]))
-				print(hex(line*0xC + patch_table_offset))
+				output_file = write_dec_to_bytes(update_value - start_table[update_segment], output_file, line*0xC + patch_table_offset + 0x8, length = 4)
+				print('Updated reference to table at', hex(write_offset + start_table[temp & 0xF]),'\tPatch Table entry #',line,'\taddress:',hex(line*0xC + patch_table_offset))
+
 			#writes to something IN the table
 			if(target_addend <= write_offset < target_addend + table_length):
 
-				#relative to start of table = (write_offset - target_addend)
-				#add that to new offset of start of table, update_value + (write_offset - target_addend)
-				#bitshift 4 to the left ((update_value + (write_offset - target_addend)) << 4)
-				#and then add 2 for the segment ((update_value + (write_offset - target_addend)) << 4) + 2
+				#relative to start of old table offset = (write_offset - target_addend)
+				#absolute address it should be written to = update_value + (write_offset - target_addend)
+				#relative to segment = ((update_value + (write_offset - target_addend)) - start_table[update_segment])
 
-				output_file = write_dec_to_bytes(((update_value + (write_offset - target_addend)) << 4) + 2, output_file, line*0xC + patch_table_offset)
-				print('Updated pointer in table at', hex(update_value + (write_offset - target_addend)))
+				output_file = write_dec_to_bytes((((update_value + (write_offset - target_addend)) - start_table[update_segment]) << 4) + update_segment, output_file, line*0xC + patch_table_offset)
+				print('Updated pointer in table at', hex(update_value + (write_offset - target_addend)),'\tPatch Table entry #',line,'\taddress:',hex(line*0xC + patch_table_offset))
 
 	else:
 	#Function case
