@@ -89,7 +89,7 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 	#only need to do all of this if we are updating .code sine
 		
 	#get the address of end of code. Note that end-offset is actually the address of the first byte of the NEXT thing
-	if(section_to_expand in {'c', 'a'}):
+	if(section_to_expand in {'c', 'a', 'r'}):
 
 		#insert new bytes for .code
 		if(section_to_expand == 'c'):
@@ -104,10 +104,17 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			output_file.extend([0xFF]*bytes_to_add)
 
 			skip_check = 0
-						
 		else:
-				
-			#grab the portion of the file before insertion
+			
+			if(section_to_expand == 'r'):
+				#inserting at address of .data, which immediately follows relocation patch table
+				segment_table_offset = hex2dec(target_file[0xC8:0xCC])
+
+
+				#patch table end = data start
+				insertion_point = hex2dec(target_file[segment_table_offset + 0x18 : segment_table_offset + 0x18 + 4])
+
+			#otherwise was manually defined
 			output_file.extend(target_file[0:insertion_point])
 			#outfile now has a copy of the date
 
@@ -115,8 +122,12 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			output_file.extend([0xCC]*bytes_to_add)
 
 			skip_check = insertion_point
-		print(bytes_to_add, insertion_point, skip_check)
-				
+		#print(bytes_to_add, insertion_point, skip_check)
+		
+		print('Adding', hex(bytes_to_add), 'bytes to', outstring,'at',insertion_point)
+
+
+
 		#add the rest of the data
 		output_file.extend(target_file[insertion_point:])
 
@@ -130,13 +141,14 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 		write_dec_to_bytes(file_size, output_file, 0x90)
 
 		#new code size
-		if(section_to_expand == 'c'):
+		if(section_to_expand in {'c'}):
 			output_file = update_offset_pointer(output_file, bytes_to_add, 0xB4, 0x0)
 
-		#get the other 16 offsets, 4 bytes every 8 bytes from 0xB8
-		for x in range(16):
-			#x*8 because we are skipping over the size of each, since those are not changing
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0xB8 + x*8, insertion_point, skip_value = skip_check)
+		if(section_to_expand != 'r'):
+			#get the other 16 offsets, 4 bytes every 8 bytes from 0xB8
+			for x in range(16):
+				#x*8 because we are skipping over the size of each, since those are not changing
+				output_file = update_offset_pointer(output_file, bytes_to_add, 0xB8 + x*8, insertion_point, skip_value = skip_check)
 
 		#deal with various tables of pointers
 		#point to table, table of pointer locations per entry, entry size
@@ -151,8 +163,9 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			for pointer_number in range(entry_count):
 				for sub_offset in table[1]:
 					output_file = update_offset_pointer(output_file, bytes_to_add, pointer_number*table[2] + sub_offset + pointer_pointer, insertion_point, skip_value = skip_check)
+		
 
-		#segment table need to update a single additional address
+		#segment table needed to update a single additional address
 		segment_table_offset = hex2dec(output_file[0xC8:0xCC])
 
 		#first update the size of the text table
@@ -164,15 +177,9 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 		segment_table_offset += 0xC
 		output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point, skip_value = skip_check)
 
-		#if we expanded rodata, expand its size as needed
-		if(section_to_expand == 'a' and hex2dec(output_file[segment_table_offset + 4 :segment_table_offset + 8]) + hex2dec(output_file[segment_table_offset:segment_table_offset + 4]) <= skip_check):
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4, 0x0)
-		#else:
-			#print('You have tried to expand something by manual entry that is not in rodata, this might go horribly wrong, please ensure you have a backup.')
-				
 		#.data
 		segment_table_offset += 0xC
-		output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point, skip_value = skip_check)
+		output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point - 1, skip_value = skip_check - 1)
 
 
 	#otherwise if we are updating just .data or .bss
@@ -226,8 +233,8 @@ def cro_expansion_user_input(target_file, file_size):
 	
 	while True:
 		try:
-			section_to_expand = input('Expand .code, .data, .bss, or insert into specific address? (c/d/b/a):\n').lower()
-			if(section_to_expand in {'c','d','b', 'a'}):
+			section_to_expand = input('Expand .code, relocation patch table, .data, .bss? (c/r/d/b):\n').lower()
+			if(section_to_expand in {'c','d','b', 'r'}):
 				break
 			else:
 				print(section_to_expand, 'is not a valid selection.')
@@ -241,8 +248,8 @@ def cro_expansion_user_input(target_file, file_size):
 			outstring = '.data'
 		case 'b':
 			outstring = '.bss'
-		case 'a':
-			outstring = 'specific address'
+		case 'r':
+			outstring = 'relocation patch table'
 		case _:
 			outstring = 'error'
 
@@ -265,7 +272,7 @@ def cro_expansion_user_input(target_file, file_size):
 
 
 					
-	if(section_to_expand in {'c','d', 'a'}):
+	if(section_to_expand in {'c','d', 'r'}):
 		print('You can only add space in pages, multiples of 0x1000 bytes')
 		while True:
 			try:
