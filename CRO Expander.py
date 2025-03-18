@@ -50,7 +50,7 @@ def write_dec_to_bytes(decimals, data, start, length = 4):
 
 	#handle overflowing specified number of bytes
 	if(decimals != 0):
-		print('Warning, remainder of', decimals, 'left after writing', length, 'bytes', 'at address', start, '. Original value is dec ', temp, '/0x', dec2hex(temp,6))
+		print('Warning, remainder of', decimals, 'left after writing', length, 'bytes', 'at address', hex(start), '. Original value is dec ', temp, '/', hex(dec2hex(temp,6)))
 		while True:
 			proceed_bool = input('Proceed anyway?\nY/N\n').lower()
 			if(proceed_bool == 'y'):
@@ -67,7 +67,7 @@ def update_offset_pointer(data, change, pointer_location, old_code_segment_end, 
 	
 	temp = hex2dec(data[pointer_location:pointer_location + pointer_length])
 
-	#if we past this value, don't update it
+	#if we inserted after this value, don't update it
 	if(temp < skip_value):
 		return(data)
 
@@ -83,9 +83,8 @@ def update_offset_pointer(data, change, pointer_location, old_code_segment_end, 
 def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_size, insertion_point = 0):
 	
 	output_file = []
-	print('Adding', bytes_to_add, 'bytes to', outstring)
 
-	print(section_to_expand)
+	#print(section_to_expand)
 
 	#only need to do all of this if we are updating .code sine
 		
@@ -214,11 +213,11 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 				
 	match section_to_expand:
 		case 'c':
-			print('Added', hex(bytes_to_add), 'bytes to ', outstring, 'which is', hex(bytes_to_add//4), 'instructions, starting at address', hex(insertion_point), '.\n\n')
+			print('Added', hex(bytes_to_add), 'bytes to', outstring, 'which is', hex(bytes_to_add//4), 'instructions, starting at address', hex(insertion_point), '\n\n')
 		case 'd':
-			print('Added', hex(bytes_to_add), 'bytes to ', outstring, 'starting at address', hex(hex2dec(output_file[0x90:0x94]) - bytes_to_add), '.\n\n')
+			print('Added', hex(bytes_to_add), 'bytes to', outstring, 'starting at address', hex(hex2dec(output_file[0x90:0x94]) - bytes_to_add), '\n\n')
 		case 'b':
-			print('Added', hex(bytes_to_add), 'bytes to ', outstring, '.\n\n')
+			print('Added', hex(bytes_to_add), 'bytes to', outstring, '\n\n')
 	
 	return(output_file)
 
@@ -423,7 +422,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 			#if table end is past end of file, expand it
 			if(temp >= file_size):
-				output_file = expand_cro(output_file, 'd', 0x1000, '', len(output_file))
+				output_file = expand_cro(output_file, 'd', 0x1000, '.data', len(output_file))
 
 				#update various values
 				file_size = len(output_file)
@@ -434,7 +433,8 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				data_len = hex2dec(output_file[segment_table_offset + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 4 + 4])
 
 				start_table = [code_start, rodata_start, data_start, bss_start]
-				len_table = [code_len, rodata_len, data_len, bss_len]
+
+				#len_table = [code_len, rodata_len, data_len, bss_len]
 			#good_length == table_length if the below passed on the previous loop
 			elif(good_length != table_length):
 				#check if the data in paste-range in unused (it will be all 0xCC or 0xFF, the empty 0x00 often is spaces intended to be written to after loading)
@@ -485,7 +485,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 			output_file[old_table_absolute + ind] = 0xCC
 
 		
-		print('Table now starts at', hex(update_value),'\n')
+		print('\nTable now starts at', hex(update_value),'segment offset: ',hex(start_table[update_segment]),'\n')
 		
 		#finally, look for everywhere in relocation patches that either writes a pointer TO the table,or writes a pointer IN the table, and update them
 		for line in range(patch_table_item_count):
