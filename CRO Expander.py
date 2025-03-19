@@ -506,21 +506,28 @@ def repoint_expand(target_file, process_to_execute, file_size):
 		#finally, look for everywhere in relocation patches that either writes a pointer TO the table,or writes a pointer IN the table, and update them
 		for line in range(patch_table_item_count):
 			#get the line
-			line_thing = output_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
-			temp = hex2dec(line_thing[0:4])
 
+			line_thing = output_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
+
+			temp = hex2dec(line_thing[0:4])
+			
+			#location pointer is written to
 			write_offset = (temp >> 4)
-			#check if points AT our table
-			if(hex2dec(line_thing[0x8:0xC]) == target_addend and line_thing[0x5] == target_segment):
+
+			#location pointer is pointing at
+			pointed_at = hex2dec(line_thing[0x8:0xC])
+
+			#check if points AT an address in our table
+			if(target_addend <= pointed_at < target_addend + table_length and line_thing[0x5] == target_segment):
 				
 				#set new segment
 				output_file[line*0xC + patch_table_offset + 0x5] = update_segment
 
 				#offset into .data
-				output_file = write_dec_to_bytes(update_value - start_table[update_segment], output_file, line*0xC + patch_table_offset + 0x8, length = 4)
-				print('Updated reference to table at', hex(write_offset + start_table[temp & 0xF]),'\tPatch Table entry #',line,'\taddress:',hex(line*0xC + patch_table_offset))
+				output_file = write_dec_to_bytes(update_value - start_table[update_segment] + (pointed_at - target_addend), output_file, line*0xC + patch_table_offset + 0x8, length = 4)
+				print('Updated reference to table now at', hex(update_value - start_table[update_segment] + (pointed_at - target_addend)),'\tPatch Table entry #',line,'\taddress:',hex(line*0xC + patch_table_offset))
 
-			#writes to something IN the table
+			#writes TO an address in our table
 			if(target_addend <= write_offset < target_addend + table_length):
 
 				#relative to start of old table offset = (write_offset - target_addend)
@@ -528,7 +535,7 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				#relative to segment = ((update_value + (write_offset - target_addend)) - start_table[update_segment])
 
 				output_file = write_dec_to_bytes((((update_value + (write_offset - target_addend)) - start_table[update_segment]) << 4) + update_segment, output_file, line*0xC + patch_table_offset)
-				print('Updated pointer in table at', hex(update_value + (write_offset - target_addend)),'\tPatch Table entry #',line,'\taddress:',hex(line*0xC + patch_table_offset))
+				print('Updated pointer in table now at', hex(update_value + (write_offset - target_addend)),'\tPatch Table entry #',line,'\taddress:',hex(line*0xC + patch_table_offset))
 
 	else:
 	#Function case
