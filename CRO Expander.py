@@ -81,7 +81,6 @@ def update_offset_pointer(data, change, pointer_location, old_code_segment_end, 
 
 
 def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_size, insertion_point = 0):
-	
 	output_file = []
 
 	#print(section_to_expand)
@@ -198,17 +197,17 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			free_padding_bytes = hex2dec(output_file[0x90:0x94]) - (hex2dec(output_file[segment_table_offset + 0x18:segment_table_offset + 0x1C]) + hex2dec(output_file[segment_table_offset + 0x1C:segment_table_offset + 0x1C + 0x4]))
 
 			#update total file size less free padding bytes
-			output_file = update_offset_pointer(output_file, bytes_to_add - free_padding_bytes, 0x90, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add, 0x90, 0x0)
 
 			#update .data size in header
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0xBC, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, 0xBC, 0x0)
 
 			#update .data size in segment table
 			#0x18 is start of .data, +0x4 to its length
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x1C, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, segment_table_offset + 0x1C, 0x0)
 
 			#extend the file
-			output_file.extend([0xFF]*(bytes_to_add - free_padding_bytes))
+			output_file.extend([0xCC]*(bytes_to_add))
 
 
 		#otherwise expanding .bss
@@ -227,7 +226,6 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			print('Added', hex(bytes_to_add), 'bytes to', outstring, '\n\n')
 	
 	return(output_file)
-
 
 def cro_expansion_user_input(target_file, file_size):
 	
@@ -293,6 +291,8 @@ def cro_expansion_user_input(target_file, file_size):
 				
 	return(expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_size, insertion_point = 0))
 
+
+
 def repoint_expand(target_file, process_to_execute, file_size):
 	
 	output_file = target_file.copy()
@@ -305,12 +305,9 @@ def repoint_expand(target_file, process_to_execute, file_size):
 	bss_start = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC:segment_table_offset + 0xC + 0xC + 0xC + 4])
 
 	code_len = hex2dec(target_file[segment_table_offset + 4:segment_table_offset + 4 + 4])
-	rodata_len = hex2dec(target_file[segment_table_offset + 0xC + 4:segment_table_offset + 0xC + 4 + 4])
 	data_len = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 4 + 4])
-	bss_len = hex2dec(target_file[segment_table_offset + 0xC + 0xC + 0xC + 4:segment_table_offset + 0xC + 0xC + 0xC + 4 + 4])
 
 	start_table = [code_start, rodata_start, data_start, bss_start]
-	len_table = [code_len, rodata_len, data_len, bss_len]
 
 	patch_table_offset = hex2dec(target_file[0x128:0x12C])
 	patch_table_item_count = hex2dec(target_file[0x12C:0x130])
@@ -423,6 +420,9 @@ def repoint_expand(target_file, process_to_execute, file_size):
 				
 		temp = table_length + update_value
 		good_length = 0
+
+
+
 		#first see if target space exists, if not expand table
 		while True:
 				
