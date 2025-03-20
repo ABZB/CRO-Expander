@@ -1,3 +1,4 @@
+from multiprocessing import process
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 import os
 #import hashlib
@@ -390,13 +391,13 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 			print('Using', hex(update_value),'\n')
 
-			if(process_to_execute == 't' and rodata_start > update_value):
-				print('Selected move-to address is not in .data. Moving Table to a non-.data location is not supported. Please select a location that is at least',start_table[data_start],', and a value that is at least',data_start + data_len,'is recommended unless you have expanded the .data section already and know that the target region is unused.\n')
-			else:
-				break
+			#if(process_to_execute == 't' and rodata_start > update_value):
+			#	print('Selected move-to address is not in .data. Moving Table to a non-.data location is not supported. Please select a location that is at least',start_table[data_start],', and a value that is at least',data_start + data_len,'is recommended unless you have expanded the .data section already and know that the target region is unused.\n')
+			#else:
+			break
 		except Exception as e:
 			print(update_value, 'is not an integer.')
-			print(e)
+			print(e, process_to_execute, rodata_start, update_value)
 
 
 	
