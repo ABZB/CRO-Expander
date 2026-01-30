@@ -124,7 +124,7 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			skip_check = insertion_point
 		#print(bytes_to_add, insertion_point, skip_check)
 		
-		print('Adding', hex(bytes_to_add), 'bytes to', outstring,'at',insertion_point)
+		print('Adding', hex(bytes_to_add), 'bytes to', outstring,'at',hex(insertion_point))
 
 
 
