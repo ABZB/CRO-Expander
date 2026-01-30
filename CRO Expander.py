@@ -228,15 +228,20 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 	
 	return(output_file)
 
-def cro_expansion_user_input(target_file, file_size):
+def cro_expansion_user_input(target_file, section_to_expand = '', pages_to_add = 0):
 	
+	file_size = len(target_file)
+
+
 	while True:
 		try:
-			section_to_expand = input('Expand .code, relocation patch table, .data, .bss? (c/r/d/b):\n').lower()
+			if(section_to_expand == ''):
+				section_to_expand = input('Expand .code, relocation patch table, .data, .bss? (c/r/d/b):\n').lower()
 			if(section_to_expand in {'c','d','b', 'r'}):
 				break
 			else:
 				print(section_to_expand, 'is not a valid selection.')
+				section_to_expand = ''
 		except:
 			print(section_to_expand, 'is not understood.')
 		
@@ -275,7 +280,8 @@ def cro_expansion_user_input(target_file, file_size):
 		print('You can only add space in pages, multiples of 0x1000 bytes')
 		while True:
 			try:
-				pages_to_add = int(input('Enter number of pages to add:\n'))
+				if(pages_to_add == 0):
+					pages_to_add = int(input('Enter number of pages to add:\n'))
 				break
 			except:
 				print(pages_to_add, 'is not an integer.')
@@ -294,8 +300,10 @@ def cro_expansion_user_input(target_file, file_size):
 
 
 
-def repoint_expand(target_file, process_to_execute, file_size):
+def repoint_expand(target_file, process_to_execute, find_method = '', find_value = 0, update_value = 0):
 	
+	file_size = len(target_file)
+
 	output_file = target_file.copy()
 
 	segment_table_offset = hex2dec(target_file[0xC8:0xCC])
@@ -324,7 +332,8 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 	while True:
 		try:
-			find_method = input('Search by either a location where the table/function address is written TO, or by the actual address of the table/function (w/a) :\n').lower()
+			if(find_method == ''):
+				find_method = input('Search by either a location where the table/function address is written TO, or by the actual address of the table/function (w/a) :\n').lower()
 			if(find_method in {'w','a'}):
 				break
 			else:
@@ -334,7 +343,9 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 	while True:
 		try:
-			if(find_method == 'w'):
+			if(find_value != 0):
+				pass
+			elif(find_method == 'w'):
 				find_value = input('Enter an address where the pointer to your table/function is written to:\n')
 			elif(find_method == 'a'):
 				find_value = input('Enter the address of your table/function:\n')
@@ -380,7 +391,9 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 	while True:
 		try:
-			if(process_to_execute == 't'):
+			if(update_value != 0):
+				pass
+			elif(process_to_execute == 't'):
 				update_value = input('Enter the absolute address to which you want the table to start at:\n(You can select an address past the current end of the file, the file will be expanded to make room)\n')
 			elif(process_to_execute == 'f'):
 				update_value = input('Enter the absolute address to which you want to repoint the function:\n(Note that if you place a function outside of the .code/.text section it will crash if not on Citra)\n')
@@ -550,6 +563,8 @@ def repoint_expand(target_file, process_to_execute, file_size):
 
 	return(output_file)
 
+
+
 def main():
 	
 	load_new_file = True
@@ -562,7 +577,6 @@ def main():
 			target_file = load_file('Select cro file')
 		else:
 			target_file = output_file
-		file_size = len(target_file)
 		process_to_execute = ''
 		while True:
 			try:
@@ -575,10 +589,10 @@ def main():
 				print(process_to_execute, 'is not understood.')
 
 		if(process_to_execute == 's'):
-			output_file = cro_expansion_user_input(target_file, file_size)
+			output_file = cro_expansion_user_input(target_file)
 		#otherwise something in patch table
 		else:
-			output_file = repoint_expand(target_file, process_to_execute, file_size)
+			output_file = repoint_expand(target_file, process_to_execute)
 
 
 
@@ -608,4 +622,5 @@ def main():
 
 	return(True)
 
-main()
+if __name__ == "__main__":
+    main()
