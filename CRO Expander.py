@@ -144,11 +144,17 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 		if(section_to_expand in {'c'}):
 			output_file = update_offset_pointer(output_file, bytes_to_add, 0xB4, 0x0)
 
-		if(section_to_expand != 'r'):
-			#get the other 16 offsets, 4 bytes every 8 bytes from 0xB8
-			for x in range(16):
+		#if expanding code or relocation patch table, need to advance .data start
+		if(section_to_expand in {'c','r'}):
+				output_file = update_offset_pointer(output_file, bytes_to_add, 0xB8, insertion_point, skip_value = skip_check)
+
+
+		#these only need to be repointed if expanding code
+		if(section_to_expand in {'c'}):
+			#get the other 15 offsets, 4 bytes every 8 bytes from 0xBC
+			for x in range(15):
 				#x*8 because we are skipping over the size of each, since those are not changing
-				output_file = update_offset_pointer(output_file, bytes_to_add, 0xB8 + x*8, insertion_point, skip_value = skip_check)
+				output_file = update_offset_pointer(output_file, bytes_to_add, 0xBC + x*8, insertion_point, skip_value = skip_check)
 
 		#deal with various tables of pointers
 		#point to table, table of pointer locations per entry, entry size
