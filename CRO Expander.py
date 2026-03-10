@@ -64,13 +64,15 @@ def write_dec_to_bytes(decimals, data, start, length = 4):
 	return(data)
 
 
-def update_offset_pointer(data, change, pointer_location, old_code_segment_end, pointer_length = 4, ignore_zero_pointer = True, skip_value = 0):
+def update_offset_pointer(data, change, pointer_location, old_code_segment_end = 0x0, pointer_length = 4, ignore_zero_pointer = True, skip_value = 0):
 	
 	temp = hex2dec(data[pointer_location:pointer_location + pointer_length])
 
 	#if we inserted after this value, don't update it
 	if(temp < skip_value):
 		return(data)
+
+	print(temp, change, pointer_location, pointer_length)
 
 	#ignore addresses that are zero or are before the inserted space
 	if((ignore_zero_pointer and temp == 0) or temp < old_code_segment_end):
@@ -90,7 +92,7 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 		
 	#get the address of end of code. Note that end-offset is actually the address of the first byte of the NEXT thing
 	if(section_to_expand in {'c', 'a', 'r'}):
-
+		skip_check = 0
 		#insert new bytes for .code
 		if(section_to_expand == 'c'):
 			
@@ -101,7 +103,7 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			output_file.extend(target_file[0:insertion_point])
 
 			#add new bytes
-			output_file.extend([0xFF]*bytes_to_add)
+			output_file.extend([0xCC]*bytes_to_add)
 
 			skip_check = 0
 		else:
@@ -126,8 +128,6 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 		
 		print('Adding', hex(bytes_to_add), 'bytes to', outstring,'at',hex(insertion_point))
 
-
-
 		#add the rest of the data
 		output_file.extend(target_file[insertion_point:])
 
@@ -142,7 +142,7 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 
 		#new code size
 		if(section_to_expand in {'c'}):
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0xB4, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add, 0xB4)
 
 		#if expanding code or relocation patch table, need to advance .data start
 		if(section_to_expand in {'c','r'}):
@@ -154,7 +154,7 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			#get the other 15 offsets, 4 bytes every 8 bytes from 0xBC
 			for x in range(15):
 				#x*8 because we are skipping over the size of each, since those are not changing
-				output_file = update_offset_pointer(output_file, bytes_to_add, 0xBC + x*8, insertion_point, skip_value = skip_check)
+				output_file = update_offset_pointer(output_file, bytes_to_add, 0xC0 + x*8, insertion_point, skip_value = skip_check)
 
 		#deal with various tables of pointers
 		#point to table, table of pointer locations per entry, entry size
@@ -176,7 +176,7 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 
 		#first update the size of the text table
 		if(section_to_expand == 'c'):
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4)
 		#size is 0xC, need to go update the start offsets of the 2nd and 3rd entry
 
 		#ROdata
@@ -204,14 +204,14 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 			free_padding_bytes = hex2dec(output_file[0x90:0x94]) - (hex2dec(output_file[segment_table_offset + 0x18:segment_table_offset + 0x1C]) + hex2dec(output_file[segment_table_offset + 0x1C:segment_table_offset + 0x1C + 0x4]))
 
 			#update total file size less free padding bytes
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0x90, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add, 0x90)
 
 			#update .data size in header
-			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, 0xBC, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, 0xBC)
 
 			#update .data size in segment table
 			#0x18 is start of .data, +0x4 to its length
-			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, segment_table_offset + 0x1C, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, segment_table_offset + 0x1C)
 
 			#extend the file
 			output_file.extend([0xCC]*(bytes_to_add))
@@ -220,9 +220,9 @@ def expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_siz
 		#otherwise expanding .bss
 		else:
 			#header .bss size
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0x94, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add, 0x94)
 			#segment table .bss size
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x28, 0x0)
+			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x28)
 				
 	match section_to_expand:
 		case 'c':
