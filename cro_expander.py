@@ -71,7 +71,7 @@ def update_offset_pointer(data, change, pointer_location, old_code_segment_end =
 	if(temp < skip_value):
 		return(data)
 
-	print(temp, change, pointer_location, pointer_length)
+	#print(temp, change, pointer_location, pointer_length)
 
 	#ignore addresses that are zero or are before the inserted space
 	if((ignore_zero_pointer and temp == 0) or temp < old_code_segment_end):
