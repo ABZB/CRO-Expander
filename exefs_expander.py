@@ -2,23 +2,34 @@ from cro_expander import *
 
 def expand_code(target_code_file, target_header_file, target_NCCH_file, section_to_expand, bytes_to_add, outstring, insertion_point = 0):
 	output_code_file = []
-	output_header_file = []
-	output_NCCH_file = []
 
 	#print(section_to_expand)
 
 	#only need to do all of this if we are updating .code sine
 		
 	#get the address of end of code. Note that end-offset is actually the address of the first byte of the NEXT thing
-	if(section_to_expand in {'c', 'a'}):
+	if(section_to_expand in {'c', 'a', 'd'}):
 		skip_check = 0
 		#insert new bytes for .code
-		if(section_to_expand == 'c'):
+		if(section_to_expand in {'c', 'd'}):
 			
 			#if code, insert new code in the "text" at the very end. Need to add the offset to the size, otherwise already defined this
 			if(insertion_point == 0):
-				#start + 4096*physical region size
-				insertion_point = hex2dec(target_header_file[0x10:0x14])+ hex2dec(target_header_file[0x14:0x18])*4096
+
+				if(section_to_expand == 'c'):
+					#start + 4096*physical region size
+					insertion_point = hex2dec(target_header_file[0x10:0x14]) + hex2dec(target_header_file[0x14:0x18])*4096
+
+					#update size in DecryptedExHeader
+					update_offset_pointer(target_header_file, bytes_to_add, 0x18)
+					update_offset_pointer(target_header_file, bytes_to_add//4096, 0x14)
+
+				#.data
+				else:
+					insertion_point = hex2dec(target_header_file[0x30:0x34]) + hex2dec(target_header_file[0x34:0x38])*4096
+					update_offset_pointer(target_header_file, bytes_to_add, 0x38)
+					update_offset_pointer(target_header_file, bytes_to_add//4096, 0x34)
+
 
 
 			#grab the portion of the file before insertion
@@ -46,41 +57,27 @@ def expand_code(target_code_file, target_header_file, target_NCCH_file, section_
 		output_code_file.extend(target_code_file[insertion_point:])
 
 
-	#otherwise if we are updating just .data or .bss
+		#Update DectyptedExHeader start offsets
+
+		#2nd .code
+		if(insertion_point <= hex2dec(target_header_file[0x20:0x24])):
+			update_offset_pointer(target_header_file, bytes_to_add, 0x20)
+		#.data
+		if(insertion_point <= hex2dec(target_header_file[0x30:0x34])):
+			update_offset_pointer(target_header_file, bytes_to_add, 0x30)
+
+
+		#update HeaderNCCH0 sizes and offsets
+		#ExeFS size (MU) - in units of 1 media unit = 0x200 = 512 bytes
+		update_offset_pointer(target_NCCH_file, bytes_to_add//0x200, 0x1A4)
+
+		#ROMFS offset (MU)
+		update_offset_pointer(target_NCCH_file, bytes_to_add//0x200, 0x1B0)
+
+
+	#otherwise if we are updating just .bss
 	else:
-		#no edits internally
-		output_code_file = target_code_file.copy()
-
-
-		#updating .data
-		if(section_to_expand == 'd'):
-				
-			#check for unused padding at the end of .data
-
-			#total .cro file length - (offset of .data + len(.data)). any extra space is the .data padding to get to a multiple of 0x1000
-			free_padding_bytes = hex2dec(output_file[0x90:0x94]) - (hex2dec(output_file[segment_table_offset + 0x18:segment_table_offset + 0x1C]) + hex2dec(output_file[segment_table_offset + 0x1C:segment_table_offset + 0x1C + 0x4]))
-
-			#update total file size less free padding bytes
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0x90)
-
-			#update .data size in header
-			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, 0xBC)
-
-			#update .data size in segment table
-			#0x18 is start of .data, +0x4 to its length
-			output_file = update_offset_pointer(output_file, bytes_to_add + free_padding_bytes, segment_table_offset + 0x1C)
-
-			#extend the file
-			output_file.extend([0xCC]*(bytes_to_add))
-
-
-		#otherwise expanding .bss
-		else:
-			#header .bss size
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0x94)
-			#segment table .bss size
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x28)
-				
+		update_offset_pointer(target_header_file, bytes_to_add, 0x3C)
 	match section_to_expand:
 		case 'c':
 			print('Added', hex(bytes_to_add), 'bytes to', outstring, 'which is', hex(bytes_to_add//4), 'instructions, starting at address', hex(insertion_point), '\n\n')
