@@ -1,4 +1,3 @@
-from multiprocessing import process
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 import os
 #import hashlib
