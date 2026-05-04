@@ -1,44 +1,41 @@
 from cro_expander import *
 
 def expand_code(target_code_file, target_header_file, target_NCCH_file, section_to_expand, bytes_to_add, outstring, insertion_point = 0):
-	output_file = []
+	output_code_file = []
+	output_header_file = []
+	output_NCCH_file = []
 
 	#print(section_to_expand)
 
 	#only need to do all of this if we are updating .code sine
 		
 	#get the address of end of code. Note that end-offset is actually the address of the first byte of the NEXT thing
-	if(section_to_expand in {'c', 'a', 'r'}):
+	if(section_to_expand in {'c', 'a'}):
 		skip_check = 0
 		#insert new bytes for .code
 		if(section_to_expand == 'c'):
 			
 			#if code, insert new code in the "text" at the very end. Need to add the offset to the size, otherwise already defined this
 			if(insertion_point == 0):
-				insertion_point = target_header_file
+				#start + 4096*physical region size
+				insertion_point = hex2dec(target_header_file[0x10:0x14])+ hex2dec(target_header_file[0x14:0x18])*4096
+
+
 			#grab the portion of the file before insertion
-			output_file.extend(target_file[0:insertion_point])
+			output_code_file.extend(target_code_file[0:insertion_point])
 
 			#add new bytes
-			output_file.extend([0xCC]*bytes_to_add)
+			output_code_file.extend([0xCC]*bytes_to_add)
 
 			skip_check = 0
 		else:
-			
-			if(section_to_expand == 'r'):
-				#inserting at address of .data, which immediately follows relocation patch table
-				segment_table_offset = hex2dec(target_file[0xC8:0xCC])
-
-
-				#patch table end = data start
-				insertion_point = hex2dec(target_file[segment_table_offset + 0x18 : segment_table_offset + 0x18 + 4])
 
 			#otherwise was manually defined
-			output_file.extend(target_file[0:insertion_point])
+			output_code_file.extend(output_code_file[0:insertion_point])
 			#outfile now has a copy of the date
 
 			#add new bytes
-			output_file.extend([0xCC]*bytes_to_add)
+			output_code_file.extend([0xCC]*bytes_to_add)
 
 			skip_check = insertion_point
 		#print(bytes_to_add, insertion_point, skip_check)
@@ -46,70 +43,13 @@ def expand_code(target_code_file, target_header_file, target_NCCH_file, section_
 		print('Adding', hex(bytes_to_add), 'bytes to', outstring,'at',hex(insertion_point))
 
 		#add the rest of the data
-		output_file.extend(target_file[insertion_point:])
-
-		#update header file, move from start to end
-
-		#name offset
-		output_file = update_offset_pointer(output_file, bytes_to_add, 0x84, insertion_point, skip_value = skip_check)
-
-		#new file size
-		file_size += bytes_to_add
-		write_dec_to_bytes(file_size, output_file, 0x90)
-
-		#new code size
-		if(section_to_expand in {'c'}):
-			output_file = update_offset_pointer(output_file, bytes_to_add, 0xB4)
-
-		#if expanding code or relocation patch table, need to advance .data start
-		if(section_to_expand in {'c','r'}):
-				output_file = update_offset_pointer(output_file, bytes_to_add, 0xB8, insertion_point, skip_value = skip_check)
-
-
-		#these only need to be repointed if expanding code
-		if(section_to_expand in {'c'}):
-			#get the other 15 offsets, 4 bytes every 8 bytes from 0xBC
-			for x in range(15):
-				#x*8 because we are skipping over the size of each, since those are not changing
-				output_file = update_offset_pointer(output_file, bytes_to_add, 0xC0 + x*8, insertion_point, skip_value = skip_check)
-
-		#deal with various tables of pointers
-		#point to table, table of pointer locations per entry, entry size
-		update_pointer_tables_arr = [[0xD0, [0x0], 0x8], [0xF0, [0x0,0x4,0xC], 0x14], [0x100, [0x0, 0x4], 0x8], [0x110, [0x4], 0x8]]
-
-		for table in update_pointer_tables_arr:
-			#load the table's pointer
-			pointer_pointer = hex2dec(output_file[table[0]:table[0] + 0x4])
-			#number of entries
-			entry_count = hex2dec(output_file[table[0] + 4:table[0] + 4 + 4])
-			#print(pointer_pointer, entry_count)
-			for pointer_number in range(entry_count):
-				for sub_offset in table[1]:
-					output_file = update_offset_pointer(output_file, bytes_to_add, pointer_number*table[2] + sub_offset + pointer_pointer, insertion_point, skip_value = skip_check)
-		
-
-		#segment table needed to update a single additional address
-		segment_table_offset = hex2dec(output_file[0xC8:0xCC])
-
-		#first update the size of the text table
-		if(section_to_expand == 'c'):
-			output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset + 0x4)
-		#size is 0xC, need to go update the start offsets of the 2nd and 3rd entry
-
-		#ROdata
-		segment_table_offset += 0xC
-		output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point, skip_value = skip_check)
-
-		#.data
-		segment_table_offset += 0xC
-		output_file = update_offset_pointer(output_file, bytes_to_add, segment_table_offset, insertion_point - 1, skip_value = skip_check - 1)
+		output_code_file.extend(target_code_file[insertion_point:])
 
 
 	#otherwise if we are updating just .data or .bss
 	else:
 		#no edits internally
-		output_file = target_file.copy()
-		segment_table_offset = hex2dec(output_file[0xC8:0xCC])
+		output_code_file = target_code_file.copy()
 
 
 		#updating .data
