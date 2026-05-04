@@ -5,13 +5,14 @@
     <ProjectGuid>c013cf3b-f13c-4eac-ab70-743f77b51e90</ProjectGuid>
     <ProjectHome>
     </ProjectHome>
-    <StartupFile>CRO Expander.py</StartupFile>
+    <StartupFile>exefs_expander.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>CRO Expander</Name>
     <RootNamespace>Chain Insert Function Into Nop</RootNamespace>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,6 +24,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CRO Expander.py" />
+    <Compile Include="exefs expander.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
