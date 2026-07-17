@@ -304,6 +304,54 @@ def cro_expansion_user_input(target_file, section_to_expand = '', pages_to_add =
 	return(expand_cro(target_file, section_to_expand, bytes_to_add, outstring, file_size, insertion_point = 0))
 
 
+def replace_function(target_file, code_start, rodata_start, find_value):
+
+	pointer = code_start
+	new_address = 0x0
+	while True:
+		new_address = input('Enter offset of new function to call\n')
+		try:
+			try:
+				new_address = int(new_address)
+			except:
+				new_address = int(new_address, 16)
+		except:
+			print(f'{new_address} is not a valid offset\n')
+			return
+		print(f'Changing branches to {hex(find_value)} to branch to {hex(new_address)}\n')
+		break
+
+
+	while True:
+		fourth = target_file[pointer + 3]
+		#upper 4 is the condition
+		if(0 <= ((fourth & 0xF0) >> 4) <= 0xE and fourth & 0x0F in {0xA, 0xB}):
+			#get offset thingy
+			raw_branch_value = hex2dec(target_file[pointer : pointer + 3])
+
+			#negative
+			if(raw_branch_value > 0x800000):
+				raw_branch_value -= 0x1000000
+
+			#reconstruct offset
+			branch_target = ((raw_branch_value + 2) << 2) + pointer
+			if(branch_target == find_value):
+
+
+				
+
+				branch_number = ((new_address - pointer) >> 2) - 2
+				branch_number = (branch_number + 0x1000000) if branch_number <= 0 else branch_number
+
+				print(f'bl {hex(branch_target).upper()} replaced with bl {hex(new_address).upper()} at offset {hex(pointer).upper()}\tReplaced {raw_branch_value} with {branch_number}')
+				target_file = write_dec_to_bytes(branch_number, target_file, pointer, length = 3)
+
+		pointer += 4
+
+		if(pointer >= rodata_start):
+			print(hex(pointer), hex(rodata_start))
+			return(target_file)
+
 
 def repoint_expand(target_file, process_to_execute, find_method = '', find_value = 0, update_value = 0):
 	
@@ -337,12 +385,17 @@ def repoint_expand(target_file, process_to_execute, find_method = '', find_value
 
 	while True:
 		try:
-			if(find_method == ''):
-				find_method = input('Search by either a location where the table/function address is written TO, or by the actual address of the table/function (w/a) :\n').lower()
-			if(find_method in {'w','a'}):
-				break
+			if(process_to_execute != 'n'):
+
+				if(find_method == ''):
+					find_method = input('Search by either a location where the table/function address is written TO, or by the actual address of the table/function (w/a) :\n').lower()
+				if(find_method in {'w','a'}):
+					break
+				else:
+					print(find_method, 'is not a valid selection.')
 			else:
-				print(find_method, 'is not a valid selection.')
+				find_method = 'a'
+				break
 		except:
 			print(find_method, 'is not understood.')
 
@@ -378,7 +431,7 @@ def repoint_expand(target_file, process_to_execute, find_method = '', find_value
 				target_addend = hex2dec(line_thing[0x8:0xC])
 				break
 	#method a, we need to find the entry where addend + segment_start == entry
-	elif(find_method == 'a'):
+	elif(find_method == 'a' and process_to_execute != 'n'):
 		for line in range(patch_table_item_count):
 			line_thing = target_file[line*0xC + patch_table_offset:line*0xC + patch_table_offset + 0xC]
 			temp = hex2dec(line_thing[0x8:0xC])
@@ -389,6 +442,9 @@ def repoint_expand(target_file, process_to_execute, find_method = '', find_value
 				target_segment = line_thing[0x5]
 				target_addend = hex2dec(line_thing[0x8:0xC])
 				break
+	elif(process_to_execute == 'n'):
+		return(replace_function(target_file, code_start, rodata_start, find_value))
+
 
 	if(target_addend == 0):
 		print('Error, no value found')
@@ -585,8 +641,8 @@ def main():
 		process_to_execute = ''
 		while True:
 			try:
-				process_to_execute = input('Expand .cro segment, move a table, or repoint a function: (s/t/f)\n').lower()
-				if(process_to_execute in {'s','t','f'}):
+				process_to_execute = input('Expand .cro segment, move a table, repoint a function (in the CRO table), or replace a function reference everywhere:\n(s/t/f/n)\n').lower()
+				if(process_to_execute in {'s','t','f', 'n'}):
 					break
 				else:
 					print(process_to_execute, 'is not a valid selection.')
@@ -629,3 +685,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+main()
